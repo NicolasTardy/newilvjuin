@@ -1,0 +1,1885 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ILV Crédit BUT — Générateur</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script type="module">
+  import * as pdfjsLib from 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.min.mjs';
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
+  window.__pdfjs = pdfjsLib;
+</script>
+<style>
+/* ============================================================ */
+/* ADMIN UI STYLES (dark theme)                                  */
+/* ============================================================ */
+body { margin:0; font-family:'Inter',sans-serif; background:#1a1a2e; color:#ddd; }
+
+#app-loading, #app-admin, #app-main { max-width:960px; margin:0 auto; padding:30px 20px; }
+
+.panel { background:#16213e; border:1px solid #444; border-radius:10px; padding:24px; margin-bottom:20px; }
+.panel h2 { margin:0 0 14px; font-size:18px; font-weight:700; color:#eee; }
+.panel h3 { margin:0 0 10px; font-size:15px; font-weight:600; color:#ccc; }
+
+.upload-zone {
+  border:2px dashed #555; border-radius:8px; padding:28px; text-align:center;
+  cursor:pointer; transition:border-color .2s; margin-bottom:14px;
+}
+.upload-zone:hover, .upload-zone.dragover { border-color:#c0392b; }
+.upload-zone input[type=file] { display:none; }
+.upload-zone .uz-label { font-size:14px; color:#999; }
+.upload-zone .uz-name { font-size:13px; color:#7f8c8d; margin-top:6px; }
+.upload-zone.has-file { border-color:#27ae60; }
+.upload-zone.has-file .uz-label { color:#27ae60; }
+
+.btn {
+  display:inline-block; padding:10px 24px; border:none; border-radius:6px;
+  font-family:inherit; font-size:14px; font-weight:700; cursor:pointer; transition:opacity .2s;
+}
+.btn:hover { opacity:.85; }
+.btn-primary { background:#c0392b; color:#fff; }
+.btn-secondary { background:#2c3e6b; color:#ddd; }
+.btn-print { background:#27ae60; color:#fff; }
+.btn[disabled] { opacity:.4; cursor:not-allowed; }
+
+.tabs { display:flex; gap:4px; margin-bottom:16px; }
+.tab-btn {
+  padding:8px 18px; background:#0f0f1a; border:1px solid #444; border-bottom:none;
+  border-radius:6px 6px 0 0; color:#999; font-size:13px; font-weight:600; cursor:pointer;
+}
+.tab-btn.active { background:#16213e; color:#eee; border-color:#c0392b; }
+
+.tab-content { display:none; }
+.tab-content.active { display:block; }
+
+input[type=text], input[type=number], select {
+  background:#0f0f1a; border:1px solid #444; border-radius:5px;
+  color:#ddd; padding:8px 12px; font-family:inherit; font-size:13px; width:100%;
+}
+input:focus, select:focus { outline:none; border-color:#c0392b; }
+label { display:block; font-size:12px; color:#999; margin-bottom:4px; font-weight:600; }
+.form-row { display:flex; gap:12px; margin-bottom:12px; }
+.form-row > div { flex:1; }
+
+#ean-select { width:100%; background:#0f0f1a; border:1px solid #444; border-radius:5px; color:#ddd; font-size:12px; }
+#ean-select option { padding:6px 10px; }
+#ean-select option:checked { background:#2c3e6b; color:#fff; }
+
+.cb-inline { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#bbb; cursor:pointer; }
+.cb-inline input { accent-color:#c0392b; }
+
+.progress-bar-wrap { background:#0f0f1a; border-radius:4px; height:20px; overflow:hidden; margin:10px 0; display:none; }
+.progress-bar-fill { height:100%; background:#c0392b; transition:width .2s; width:0%; }
+.progress-text { font-size:12px; color:#999; margin-top:4px; }
+
+.batch-config { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; margin-bottom:12px; }
+.batch-config > div { min-width:140px; }
+.batch-stats { font-size:12px; color:#27ae60; margin:8px 0; }
+
+/* Cart table */
+#cart-table { width:100%; border-collapse:collapse; font-size:12px; }
+#cart-table th { text-align:left; padding:6px 8px; color:#999; border-bottom:1px solid #444; font-weight:600; }
+#cart-table td { padding:6px 8px; border-bottom:1px solid #333; vertical-align:middle; }
+#cart-table input[type=number] { width:80px; }
+#cart-table .cb-cell { text-align:center; }
+#cart-table .cb-cell input { accent-color:#c0392b; }
+.cart-remove { color:#c0392b; cursor:pointer; font-weight:700; }
+
+.status-bar { font-size:12px; color:#7f8c8d; margin-bottom:12px; }
+
+.actions-bar { display:flex; gap:10px; margin-top:16px; flex-wrap:wrap; }
+
+/* ============================================================ */
+/* A5 PAGE STYLES (vector / PDF-as-background)                   */
+/* ============================================================ */
+#output { padding:30px 20px; display:flex; flex-direction:column; align-items:center; gap:30px; }
+
+#output .page {
+  width:148mm; height:210mm; background:#fff; position:relative; overflow:hidden;
+  box-shadow:0 4px 30px rgba(0,0,0,.12);
+  font-family:'Inter',sans-serif; color:#1A1A1A;
+}
+#output .page.page--excluded {
+  background:#FFF8F8; border:.4mm dashed #C8102E;
+}
+#output .page canvas.bg {
+  position:absolute; inset:0; width:100%; height:100%; display:block; user-select:none;
+}
+#output .page .field {
+  position:absolute; display:flex; align-items:center; overflow:hidden;
+  font-family:'Inter',sans-serif; font-weight:800; line-height:1.05;
+}
+#output .page .field .field-inner {
+  display:inline-block; white-space:nowrap; max-width:100%;
+  transform-origin:left center;
+}
+#output .page .field[style*="justify-content:center"] .field-inner { transform-origin:center center; }
+#output .page .field[style*="justify-content:flex-end"]  .field-inner { transform-origin:right center; }
+#output .page .field--multi { align-items:flex-start; }
+#output .page .field--multi .field-inner {
+  white-space:normal; line-height:1.1;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
+body.debug #output .page .field { outline:1px solid rgba(255,0,0,.6); background:rgba(255,0,0,.1); }
+body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); background:rgba(0,180,255,.1); }
+
+/* Hidden placeholder for the old page markup — keep selector shell inert */
+#output .page .__legacy { display:none; }
+
+/* ============================================================ */
+/* PRINT                                                          */
+/* ============================================================ */
+@media print {
+  body > *:not(#output) { display:none !important; }
+  #output { display:flex !important; padding:0; gap:0; }
+  #output .page { box-shadow:none; page-break-after:always; margin:0; }
+  @page { size:A5; margin:0; }
+}
+</style>
+</head>
+<body>
+
+<!-- ======================== LOADING SCREEN ======================== -->
+<div id="app-loading" style="text-align:center;padding:60px 20px;">
+  <h1 style="color:#eee;margin-bottom:20px;font-size:24px;">ILV Cr&eacute;dit BUT &mdash; G&eacute;n&eacute;rateur</h1>
+  <p id="loading-msg" style="color:#999;font-size:14px;">Chargement de la base articles...</p>
+  <div id="loading-error" style="display:none;margin-top:16px;">
+    <p style="color:#e74c3c;font-size:13px;margin-bottom:12px;" id="loading-error-text"></p>
+    <p style="color:#888;font-size:12px;">Aucune base articles n'est disponible. Acc&eacute;dez au <a href="?admin=1" style="color:#c0392b;">panneau admin</a> pour en charger une.</p>
+  </div>
+</div>
+
+<!-- ======================== ADMIN PANEL ======================== -->
+<div id="app-admin" style="display:none;">
+  <div style="max-width:600px;margin:0 auto;padding:30px 20px;">
+    <h1 style="color:#eee;margin-bottom:6px;font-size:20px;">Administration &mdash; ILV Cr&eacute;dit BUT</h1>
+    <p style="color:#888;font-size:12px;margin-bottom:20px;">Uploadez une nouvelle base articles Excel. Les utilisateurs verront automatiquement les nouveaux produits.</p>
+    <div class="panel">
+      <h2>Mettre &agrave; jour la base articles</h2>
+      <div class="upload-zone" id="uz-admin" onclick="document.getElementById('file-admin').click()">
+        <input type="file" id="file-admin" accept=".xlsx,.xls">
+        <div class="uz-label">Base articles / Prix fond de gamme (.xlsx)</div>
+        <div class="uz-name" id="uz-admin-name">Aucun fichier</div>
+      </div>
+      <div style="margin-top:10px;">
+        <label style="color:#999;">Mot de passe admin</label>
+        <input type="password" id="admin-password" placeholder="Mot de passe...">
+      </div>
+      <div style="text-align:center;margin-top:16px;">
+        <button class="btn btn-primary" id="btn-admin-upload" disabled onclick="adminUpload()">Envoyer la base</button>
+      </div>
+      <div id="admin-status" style="font-size:13px;margin-top:10px;text-align:center;display:none;"></div>
+    </div>
+    <div class="panel">
+      <h2>Base actuelle</h2>
+      <p id="admin-current-info" style="color:#888;font-size:13px;">V&eacute;rification...</p>
+    </div>
+    <div style="text-align:center;margin-top:12px;">
+      <a href="?" style="color:#888;font-size:12px;">&#8592; Retour &agrave; l'outil</a>
+    </div>
+  </div>
+</div>
+
+<!-- ======================== MAIN SCREEN ======================== -->
+<div id="app-main" style="display:none;">
+  <div style="display:flex;align-items:center;justify-content:space-between;">
+    <h1 style="color:#eee;margin-bottom:6px;font-size:20px;">ILV Cr&eacute;dit BUT</h1>
+    <a href="?admin=1" style="color:#555;font-size:11px;text-decoration:none;" title="Administration">&#9881; Admin</a>
+  </div>
+  <div class="status-bar" id="status-bar"></div>
+
+  <div class="panel">
+    <div class="tabs">
+      <div class="tab-btn active" onclick="switchTab('dropdown')">S&eacute;lection EAN</div>
+      <div class="tab-btn" onclick="switchTab('manual')">Saisie manuelle</div>
+    </div>
+
+    <!-- Dropdown EAN tab -->
+    <div class="tab-content active" id="tab-dropdown">
+      <div class="form-row" style="margin-bottom:10px;">
+        <div>
+          <label>Domaine</label>
+          <select id="cascade-domaine" onchange="onCascadeDomaineChange()">
+            <option value="">-- Tous les domaines --</option>
+          </select>
+        </div>
+        <div>
+          <label>Rayon</label>
+          <select id="cascade-rayon" onchange="onCascadeRayonChange()">
+            <option value="">-- Tous les rayons --</option>
+          </select>
+        </div>
+        <div>
+          <label>Gamme</label>
+          <select id="cascade-gamme" onchange="onCascadeGammeChange()">
+            <option value="">-- Toutes les gammes --</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label>Filtrer (EAN ou nom de produit)</label>
+        <input type="text" id="ean-filter" placeholder="Tapez pour filtrer la liste..." oninput="filterEanDropdown()">
+      </div>
+      <div style="margin-bottom:10px;">
+        <label>Choisir un produit <span id="ean-count" style="color:#888;font-weight:400;"></span></label>
+        <select id="ean-select" size="8" style="height:180px;" onchange="onEanSelect()">
+          <option value="" disabled selected>-- Chargez un fichier puis s&eacute;lectionnez --</option>
+        </select>
+      </div>
+      <div id="ean-product-info" style="display:none;background:#0f0f1a;border:1px solid #444;border-radius:5px;padding:12px;margin-bottom:10px;">
+        <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+          <div style="flex:1;"><span id="ean-info-name" style="font-weight:700;color:#eee;font-size:13px;"></span></div>
+          <div><span id="ean-info-prix" style="font-weight:700;color:#c0392b;font-size:14px;"></span></div>
+        </div>
+        <div style="font-size:11px;color:#888;margin-bottom:8px;">
+          <span id="ean-info-ean"></span> &middot; <span id="ean-info-rayon"></span> &middot; <span id="ean-info-gamme"></span>
+        </div>
+        <div class="form-row">
+          <div style="padding:8px 12px;border-left:3px solid #27ae60;background:#0f0f1a;border-radius:6px;">
+            <label style="color:#27ae60;font-weight:700;">Garantie</label>
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <label class="cb-inline" style="font-size:13px;color:#eee;font-weight:600;"><input type="checkbox" id="ean-include-gar" checked style="transform:scale(1.3);"> Inclure</label>
+              <select id="ean-garantie-level" onchange="onGarantieLevelChange()" style="min-width:180px;">
+                <option value="3" disabled>Garantie Premium (indisponible)</option>
+                <option value="2">&#9733;&#9733;&#9733; Garantie 3 &eacute;toiles</option>
+                <option value="1">&#9733; Garantie 1 &eacute;toile</option>
+                <option value="0">Sans garantie</option>
+              </select>
+              <input type="number" id="ean-garantie-prix" step="0.01" min="0" value="0" readonly style="opacity:.7;max-width:90px;">
+            </div>
+          </div>
+          <div style="max-width:190px;margin-left:auto;padding:8px 12px;border-left:3px solid #c0392b;background:#0f0f1a;border-radius:6px;">
+            <label style="color:#c0392b;font-weight:700;">Livraison</label>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <label class="cb-inline" style="font-size:13px;color:#eee;font-weight:600;"><input type="checkbox" id="ean-include-liv" style="transform:scale(1.3);"> Inclure</label>
+              <span id="ean-livraison-prix" style="font-size:13px;color:#ccc;font-weight:600;">0,00&euro;</span>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:8px;"><button class="btn btn-secondary" onclick="addEanProduct()">Ajouter au panier</button></div>
+      </div>
+    </div>
+
+    <!-- Manual tab -->
+    <div class="tab-content" id="tab-manual">
+      <div class="form-row">
+        <div><label>EAN (optionnel)</label><input type="text" id="m-ean" placeholder="EAN pour recherche auto..." oninput="onManualEanInput()"></div>
+      </div>
+      <div class="form-row">
+        <div><label>D&eacute;signation</label><input type="text" id="m-designation"></div>
+        <div style="max-width:120px;"><label>Prix TTC</label><input type="number" id="m-prix" step="0.01" min="0"></div>
+      </div>
+      <div class="form-row">
+        <div><label>Univers ILV</label><select id="m-domaine" onchange="onDomaineChange()"><option value="">--</option></select></div>
+        <div><label>Rayon ILV</label><select id="m-rayon" onchange="onManualFieldChange()"><option value="">--</option></select></div>
+      </div>
+      <div class="form-row">
+        <div style="padding:8px 12px;border-left:3px solid #27ae60;background:#0f0f1a;border-radius:6px;">
+          <label style="color:#27ae60;font-weight:700;">Garantie</label>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <label class="cb-inline" style="font-size:13px;color:#eee;font-weight:600;"><input type="checkbox" id="m-include-gar" checked style="transform:scale(1.3);"> Inclure</label>
+            <select id="m-garantie-level" onchange="onManualGarantieLevelChange()" style="min-width:180px;">
+              <option value="3" disabled>Garantie Premium (indisponible)</option>
+              <option value="2">&#9733;&#9733;&#9733; Garantie 3 &eacute;toiles</option>
+              <option value="1">&#9733; Garantie 1 &eacute;toile</option>
+              <option value="0">Sans garantie</option>
+            </select>
+            <input type="number" id="m-garantie" step="0.01" min="0" value="0" style="max-width:90px;">
+          </div>
+        </div>
+        <div style="max-width:190px;margin-left:auto;padding:8px 12px;border-left:3px solid #c0392b;background:#0f0f1a;border-radius:6px;">
+          <label style="color:#c0392b;font-weight:700;">Livraison</label>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <label class="cb-inline" style="font-size:13px;color:#eee;font-weight:600;"><input type="checkbox" id="m-include-liv" style="transform:scale(1.3);"> Inclure</label>
+            <span id="m-livraison-display" style="font-size:13px;color:#ccc;font-weight:600;">0,00&euro;</span>
+          </div>
+          <input type="hidden" id="m-livraison" value="0">
+        </div>
+      </div>
+      <div style="margin-top:8px;"><button class="btn btn-secondary" onclick="addManualProduct()">Ajouter au panier</button></div>
+    </div>
+  </div>
+
+  <!-- Batch processing (admin only) -->
+  <div class="panel" id="batch-panel" style="display:none;">
+    <h2>Traitement en lot</h2>
+    <p style="font-size:12px;color:#888;margin:0 0 12px;">Uploadez un fichier Excel contenant des EAN, ou traitez tous les produits charg&eacute;s d'un coup.</p>
+    <div class="form-row" style="align-items:flex-end;">
+      <div style="flex:2;">
+        <label>Fichier liste EAN (optionnel, col A = EAN)</label>
+        <input type="file" id="file-batch" accept=".xlsx,.xls,.csv,.txt" style="font-size:12px;">
+      </div>
+      <div>
+        <button class="btn btn-secondary" onclick="loadBatchFile()" id="btn-batch-load">Charger la liste</button>
+      </div>
+      <div>
+        <button class="btn btn-secondary" onclick="useBatchAll()">Utiliser tous les produits charg&eacute;s</button>
+      </div>
+    </div>
+    <div id="batch-list-info" style="display:none;">
+      <div class="batch-stats" id="batch-stats"></div>
+      <div class="batch-config">
+        <div>
+          <label>Prix minimum (&euro;)</label>
+          <input type="number" id="batch-prix-min" value="80" step="1" min="0">
+        </div>
+        <div>
+          <label>Niveau de garantie</label>
+          <select id="batch-garantie-level">
+            <option value="3" disabled>Garantie Premium (indisponible)</option>
+            <option value="2">&#9733;&#9733;&#9733; 3 &eacute;toiles</option>
+            <option value="1">&#9733; 1 &eacute;toile</option>
+            <option value="0">Sans garantie</option>
+          </select>
+        </div>
+        <div>
+          <label class="cb-inline" style="margin-top:18px;">
+            <input type="checkbox" id="batch-include-gar" checked> Inclure garantie
+          </label>
+          <label class="cb-inline" style="margin-top:4px;">
+            <input type="checkbox" id="batch-include-liv"> Inclure livraison
+          </label>
+        </div>
+        <div>
+          <label>Variantes &agrave; g&eacute;n&eacute;rer</label>
+          <div style="display:flex;flex-direction:column;gap:3px;">
+            <label class="cb-inline"><input type="checkbox" id="batch-var-gar" checked> Avec garantie</label>
+            <label class="cb-inline"><input type="checkbox" id="batch-var-gar-liv"> Avec garantie + livraison</label>
+            <label class="cb-inline"><input type="checkbox" id="batch-var-sans" checked> Sans services</label>
+          </div>
+        </div>
+      </div>
+      <div class="actions-bar">
+        <button class="btn btn-primary" onclick="generateBatchILV()">G&eacute;n&eacute;rer toutes les ILV en lot</button>
+      </div>
+    </div>
+    <div class="progress-bar-wrap" id="batch-progress-wrap">
+      <div class="progress-bar-fill" id="batch-progress-fill"></div>
+    </div>
+    <div class="progress-text" id="batch-progress-text"></div>
+  </div>
+
+  <!-- Cart -->
+  <div class="panel">
+    <h2>Panier (s&eacute;lection unitaire)</h2>
+    <div id="cart-empty" style="color:#777;font-size:13px;">Aucun produit dans le panier.</div>
+    <div id="cart-wrap" style="display:none;overflow-x:auto;">
+      <table id="cart-table">
+        <thead>
+          <tr>
+            <th>Produit</th>
+            <th>Prix <span style="display:block;font-weight:400;font-size:11px;color:#c0392b;font-style:italic;">&#9888; V&eacute;rifiez que le prix est correct</span></th>
+            <th>Garantie</th>
+            <th>Cr&eacute;dit</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="cart-body"></tbody>
+      </table>
+    </div>
+    <div class="actions-bar">
+      <button class="btn btn-primary" id="btn-generate" onclick="generateAllILV()">G&eacute;n&eacute;rer les ILV</button>
+      <button class="btn btn-primary" id="btn-pdf" onclick="exportAllPDF()" style="display:none;background:#8e44ad;">T&eacute;l&eacute;charger PDF (zip)</button>
+    </div>
+    <div class="progress-bar-wrap" id="pdf-progress-wrap">
+      <div class="progress-bar-fill" id="pdf-progress-fill"></div>
+    </div>
+    <div class="progress-text" id="pdf-progress-text"></div>
+  </div>
+
+  <!-- Output -->
+  <div id="output"></div>
+</div>
+
+<script>
+// ============================================================
+// DATA & CONSTANTS
+// ============================================================
+
+const BP_DOMAINE_MAP = {
+  "ELECTRICAL": { domaine: "ELECTROMENAGER", univers: "Electromenager" },
+  "MEUBLE": { domaine: "MEUBLE", univers: "Meubles" },
+  "DECORATION": null,
+};
+
+const BP_FAMILLE_MAP = {
+  "ELECTRICAL|LAVAGE|LAVE LINGE": "LAVE-LINGE",
+  "ELECTRICAL|LAVAGE|LAVE VAISSELLE": "LAVE-VAISSELLE",
+  "ELECTRICAL|LAVAGE|SECHE LINGE": "SECHE-LINGE",
+  "ELECTRICAL|FROID|RÉFRIGÉRATEUR": "REFRIGERATEUR",
+  "ELECTRICAL|FROID|REFRIGERATEUR": "REFRIGERATEUR",
+  "ELECTRICAL|FROID|REF US (SIDE/SIDE)": "REFRIGERATEUR US",
+  "ELECTRICAL|FROID|COMBINÉ": "COMBINE",
+  "ELECTRICAL|FROID|COMBINE": "COMBINE",
+  "ELECTRICAL|FROID|CONGÉLATEUR": "CONGELATEUR",
+  "ELECTRICAL|FROID|CONGELATEUR": "CONGELATEUR",
+  "ELECTRICAL|FROID|CAVE A VIN": "CAVE A VIN",
+  "ELECTRICAL|CUISSON ENCASTRABLE|FOUR": "FOUR",
+  "ELECTRICAL|CUISSON ENCASTRABLE|TABLE DE CUISSON": "TABLE DE CUISSON",
+  "ELECTRICAL|CUISSON ENCASTRABLE|ASPIRATION": "HOTTE",
+  "ELECTRICAL|PEM - ASPI - AIR - FMO|ASPIRATEUR": "ASPIRATEUR",
+  "ELECTRICAL|PEM - ASPI - AIR - FMO|FOUR MICRO-ONDES": "FMO (Four Micro-Ondes)",
+  "ELECTRICAL|PEM - ASPI - AIR - FMO|CLIMATISATION": "CLIM",
+};
+
+const BP_RAYON_MAP = {
+  "ELECTRICAL|CUISINIERE": "CUISINIERE",
+  "ELECTRICAL|PEM - ASPI - AIR - FMO": "PEM (Petit Electromenager)",
+  "ELECTRICAL|TV": "TV",
+  "ELECTRICAL|SON": null,
+  "MEUBLE|SIEGE": "SIEGE",
+  "MEUBLE|CAC - LITS": "CAC (Canape/Convertible)",
+  "MEUBLE|MEUBLES DE SEJOUR": "SEJOUR",
+  "MEUBLE|PETIT MEUBLE SEJOUR": "SEJOUR",
+  "MEUBLE|LITERIE": "LITERIE (Meuble)",
+  "MEUBLE|CUISINE - BUFFET": "CUISINE (meuble)",
+  "MEUBLE|RANGEMENT MODULAIRE": "RANGEMENT",
+  "MEUBLE|BIBLIO - RANGEMENT": "RANGEMENT",
+  "MEUBLE|ARMOIRE - DRESSING": "RANGEMENT",
+  "MEUBLE|BUREAU": "SEJOUR",
+  "MEUBLE|TABLE ET CHAISE": "SEJOUR",
+};
+
+const RAYON_TO_UNIVERS_ILV = {
+  "PEM (Petit Electromenager)": "PEM", "EXPRESSO": "PEM", "FMO (Four Micro-Ondes)": "PEM",
+  "ROBOTS": "PEM", "ASPIRATEUR": "PEM",
+  "LAVE-LINGE": "GEM/TV", "LAVE-VAISSELLE": "GEM/TV", "SECHE-LINGE": "GEM/TV",
+  "REFRIGERATEUR": "GEM/TV", "REFRIGERATEUR US": "GEM/TV", "COMBINE": "GEM/TV",
+  "CONGELATEUR": "GEM/TV", "CUISINIERE": "GEM/TV", "TABLE DE CUISSON": "GEM/TV",
+  "FOUR": "GEM/TV", "HOTTE": "GEM/TV", "CAVE A VIN": "GEM/TV", "CLIM": "GEM/TV", "TV": "GEM/TV",
+  "SEJOUR": "MEUBLE", "RANGEMENT": "MEUBLE", "CUISINE (meuble)": "MEUBLE",
+  "LITERIE": "LITERIE", "LITERIE (Meuble)": "LITERIE",
+  "SIEGE": "SIEGE", "CAC (Canape/Convertible)": "SIEGE",
+};
+
+const STRATEGIE_ILV = [
+  { min: 80, max: 300, univers: ["PEM","GEM/TV","MEUBLE","LITERIE"], credit: "5x_sf" },
+  { min: 300, max: 600, univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "10x_ir" },
+  { min: 600, max: 1200, univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "20x_ir" },
+  { min: 1200, max: 2000, univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "36x_si" },
+  { min: 2000, max: 99999, univers: ["GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "60x_si" },
+];
+
+const COEFF_MENSUELS = {
+  5: { 1: null, 2: null, 3: null },
+  10: { 1: 0.10806, 2: 0.10692, 3: 0.10386 },
+  20: { 1: 0.05736, 2: 0.05674, 3: 0.05373 },
+  36: { 1: 0.03423, 2: 0.03423, 3: 0.03149 },
+  48: { 1: 0.02738, 2: 0.02738, 3: 0.02457 },
+  60: { 1: 0.02332, 2: 0.02332, 3: 0.02044 },
+};
+
+const TAEG = {
+  5: { 1: "0 %", 2: "0 %", 3: "0 %" },
+  10: { 1: "18,63 %", 2: "15,87 %", 3: "8,67 %" },
+  20: { 1: "17,40 %", 2: "15,87 %", 3: "8,67 %" },
+  36: { 1: "15,05 %", 2: "15,05 %", 3: "8,67 %" },
+  48: { 1: "15,05 %", 2: "15,05 %", 3: "8,67 %" },
+  60: { 1: "15,05 %", 2: "15,05 %", 3: "8,67 %" },
+};
+
+const CREDIT_TYPES = {
+  "5x_sf":  { label: "5\u00D7 Sans Frais", duree: 5, famille: "gratuit", variants: ["gar", "sans"] },
+  "10x_ir": { label: "10\u00D7 Int. Rembours\u00E9s", duree: 10, famille: "ir", variants: ["gar", "gar_liv", "sans"] },
+  "20x_ir": { label: "20\u00D7 Int. Rembours\u00E9s", duree: 20, famille: "ir", variants: ["gar", "gar_liv", "sans"] },
+  "36x_si": { label: "36\u00D7 Services Inclus", duree: 36, famille: "payant", variants: ["gar", "gar_liv", "sans"] },
+  "48x_si": { label: "48\u00D7 Services Inclus", duree: 48, famille: "payant", variants: ["gar", "gar_liv", "sans"] },
+  "60x_si": { label: "60\u00D7 Services Inclus", duree: 60, famille: "payant", variants: ["gar", "gar_liv", "sans"] },
+};
+
+// Map creditKey (webapp) → slug (champs_all.json)
+const CREDITKEY_TO_SLUG = {
+  "5x_sf":  "5x",
+  "10x_ir": "10x",
+  "20x_ir": "20x",
+  "36x_si": "36x",
+  "48x_si": "48x",
+  "60x_si": "60x",
+};
+// Variant → PDF page number
+const VARIANT_TO_PAGE = { "gar": 1, "gar_liv": 2, "sans": 3 };
+
+// In-memory cache: { slug: { champs, pdfDoc } }
+let champsAll = null;
+const pdfCache = {};
+
+// ============================================================
+// GLOBAL STATE
+// ============================================================
+let products = [];          // loaded from base articles
+let simDonnees = [];        // simulateur Donnees rows
+let simListes = {};         // univers -> families
+let cart = [];              // {id, designation, prix, domaine, rayon, rayonILV, universILV, garantie, livraison, credits:{}}
+let pageCounter = 0;
+let generatedPagesMeta = [];  // {filename} for each generated page
+
+// ============================================================
+// STARTUP: auto-load products from server or show admin
+// ============================================================
+const isAdmin = new URLSearchParams(window.location.search).has('admin');
+
+async function startup() {
+  if (isAdmin) {
+    document.getElementById('app-admin').style.display = 'block';
+    setupAdmin();
+  }
+
+  // Load champs_all.json + wait for pdfjs
+  try {
+    champsAll = await fetch('champs_all.json').then(r => r.json());
+  } catch (ex) {
+    console.warn('champs_all.json non charg\u00e9:', ex);
+  }
+  // wait for pdf.js module loader
+  let tries = 0;
+  while (!window.__pdfjs && tries < 100) { await new Promise(r => setTimeout(r, 50)); tries++; }
+
+  // Essaie d'abord le JSON serveur (prod), sinon xlsx par d\u00E9faut embarqu\u00E9 (local/standalone)
+  try {
+    const resp = await fetch('data/products.json');
+    if (!resp.ok) throw new Error('Pas de JSON, fallback xlsx');
+    const data = await resp.json();
+    loadProductsFromJSON(data);
+    return;
+  } catch(e) { /* fallback ci-dessous */ }
+
+  try {
+    document.getElementById('loading-msg').textContent = 'Chargement de la base articles embarqu\u00E9e...';
+    const resp = await fetch('data/base.xlsx');
+    if (!resp.ok) throw new Error('Pas de base articles disponible');
+    const buf = await resp.arrayBuffer();
+    parseBaseArticles(buf);
+    initEmbeddedSimulateur();
+    document.getElementById('app-loading').style.display = 'none';
+    document.getElementById('app-main').style.display = 'block';
+    if (isAdmin) document.getElementById('batch-panel').style.display = 'block';
+    const sb = document.getElementById('status-bar');
+    if (sb) sb.textContent = products.length + ' produits \u00B7 ' + simDonnees.length + ' lignes simulateur \u00B7 base par d\u00E9faut';
+    populateCascadeDomaine(); populateCascadeRayon(); populateCascadeGamme(); populateEanDropdown(products);
+    populateDomaineDropdown();
+  } catch(ex) {
+    document.getElementById('loading-msg').style.display = 'none';
+    document.getElementById('loading-error').style.display = 'block';
+    document.getElementById('loading-error-text').textContent = ex.message;
+  }
+}
+
+async function getPdfDoc(slug) {
+  if (pdfCache[slug]) return pdfCache[slug];
+  const entry = champsAll[slug];
+  if (!entry) throw new Error('Slug inconnu: ' + slug);
+  pdfCache[slug] = await window.__pdfjs.getDocument(entry.pdf).promise;
+  return pdfCache[slug];
+}
+
+function loadProductsFromJSON(data) {
+  products = data;
+  initEmbeddedSimulateur();
+
+  document.getElementById('app-loading').style.display = 'none';
+  document.getElementById('app-main').style.display = 'block';
+  if (isAdmin) document.getElementById('batch-panel').style.display = 'block';
+  document.getElementById('status-bar').textContent =
+    products.length + ' produits charg\u00E9s \u00B7 ' + simDonnees.length + ' lignes simulateur';
+
+  populateCascadeDomaine(); populateCascadeRayon(); populateCascadeGamme(); populateEanDropdown(products);
+  populateDomaineDropdown();
+}
+
+// ============================================================
+// ADMIN: upload new base articles
+// ============================================================
+function setupAdmin() {
+  document.getElementById('file-admin').addEventListener('change', function(e) {
+    const f = e.target.files[0];
+    if (f) {
+      document.getElementById('uz-admin-name').textContent = f.name;
+      document.getElementById('uz-admin').classList.add('has-file');
+    }
+    document.getElementById('btn-admin-upload').disabled = !f;
+  });
+
+  // Check current base
+  fetch('data/products.json').then(r => {
+    if (r.ok) return r.json();
+    throw new Error('none');
+  }).then(data => {
+    document.getElementById('admin-current-info').textContent =
+      data.length + ' produits dans la base actuelle.';
+  }).catch(() => {
+    document.getElementById('admin-current-info').textContent = 'Aucune base charg\u00E9e.';
+  });
+}
+
+async function adminUpload() {
+  const statusEl = document.getElementById('admin-status');
+  const password = document.getElementById('admin-password').value;
+  const file = document.getElementById('file-admin').files[0];
+  if (!file) return;
+
+  statusEl.style.display = 'block';
+  statusEl.style.color = '#999';
+  statusEl.textContent = 'Analyse du fichier Excel...';
+
+  try {
+    const data = await readFileAsArrayBuffer(file);
+    parseBaseArticles(data);
+
+    // Mode local (http.server Python, pas de backend) : on skip l'upload et on utilise la base en m\u00E9moire.
+    const isLocal = ['localhost','127.0.0.1',''].includes(location.hostname);
+
+    if (isLocal) {
+      // Charge aussi champs_all.json si pas d\u00E9j\u00E0 fait (le chargement normal ne se fait qu'en mode non-admin)
+      if (!champsAll) {
+        try { champsAll = await fetch('champs_all.json').then(r => r.json()); }
+        catch(e) { console.warn('champs_all.json:', e); }
+      }
+      // Attend pdf.js
+      let tries=0; while (!window.__pdfjs && tries<100) { await new Promise(r=>setTimeout(r,50)); tries++; }
+      // Initialise le simulateur embarqu\u00E9 (tranches, garanties, livraison)
+      if (typeof initEmbeddedSimulateur === 'function') initEmbeddedSimulateur();
+
+      statusEl.style.color = '#27ae60';
+      statusEl.textContent = products.length + ' produits charg\u00E9s (mode local, session courante).';
+      document.getElementById('admin-current-info').textContent =
+        products.length + ' produits charg\u00E9s \u00B7 ' + simDonnees.length + ' lignes simulateur.';
+      // Bascule vers l'app principale
+      document.getElementById('app-admin').style.display = 'none';
+      document.getElementById('app-main').style.display = 'block';
+      const sb = document.getElementById('status-bar');
+      if (sb) sb.textContent = products.length + ' produits \u00B7 ' + simDonnees.length + ' lignes simulateur';
+      if (typeof populateEanDropdown === 'function') populateCascadeDomaine(); populateCascadeRayon(); populateCascadeGamme(); populateEanDropdown(products);
+      if (typeof populateDomaineDropdown === 'function') populateDomaineDropdown();
+      return;
+    }
+
+    statusEl.textContent = products.length + ' produits extraits. Envoi au serveur...';
+
+    const resp = await fetch('api/upload-products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+      body: JSON.stringify(products)
+    });
+
+    if (!resp.ok) {
+      const msg = await resp.text();
+      throw new Error(msg || 'Erreur serveur');
+    }
+
+    statusEl.style.color = '#27ae60';
+    statusEl.textContent = products.length + ' produits enregistr\u00E9s avec succ\u00E8s !';
+    document.getElementById('admin-current-info').textContent =
+      products.length + ' produits dans la base actuelle.';
+  } catch(ex) {
+    statusEl.style.color = '#e74c3c';
+    statusEl.textContent = 'Erreur: ' + ex.message;
+  }
+}
+
+function readFileAsArrayBuffer(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+    r.readAsArrayBuffer(file);
+  });
+}
+
+// Launch
+startup();
+
+// ============================================================
+// PARSE BASE ARTICLES
+// ============================================================
+function parseBaseArticles(data) {
+  const wb = XLSX.read(data, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+  // Headers in row 2 (index 1)
+  if (rows.length < 3) throw new Error('Base articles: fichier trop court');
+  const headers = rows[1].map(h => String(h).trim());
+
+  const colIdx = (name) => {
+    const i = headers.indexOf(name);
+    return i;
+  };
+
+  const iDomaine = colIdx('LIB_DOMAINE');
+  const iRayon = colIdx('LIB_RAYON');
+  const iFamille = colIdx('LIB_FAMILLE');
+  const iEan = colIdx('EAN_13');
+  const iLib = colIdx('LIB_PRODUIT');
+  let iPrix = colIdx('PV TTC');
+  if (iPrix < 0) iPrix = colIdx('PRIX_VENTE_ENSEIGNE');
+
+  if (iLib < 0) throw new Error('Base articles: colonne LIB_PRODUIT introuvable');
+  if (iPrix < 0) throw new Error('Base articles: colonne prix introuvable');
+
+  const iGamme = colIdx('LIB_GAMME');
+
+  products = [];
+  for (let r = 2; r < rows.length; r++) {
+    const row = rows[r];
+    const prix = parseFloat(row[iPrix]);
+    if (isNaN(prix) || prix <= 0) continue;
+
+    const domaineBP = iDomaine >= 0 ? String(row[iDomaine]).trim() : '';
+    const rayonBP = iRayon >= 0 ? String(row[iRayon]).trim() : '';
+    const familleBP = iFamille >= 0 ? String(row[iFamille]).trim() : '';
+    const ean = iEan >= 0 ? String(row[iEan]).trim() : '';
+    const designation = String(row[iLib]).trim();
+    const gamme = iGamme >= 0 ? String(row[iGamme]).trim() : '';
+
+    // Map domaine
+    const domInfo = BP_DOMAINE_MAP[domaineBP];
+    if (domInfo === null) continue; // excluded (DECORATION)
+    const domaine = domInfo ? domInfo.domaine : domaineBP;
+
+    // Map rayon (try famille first, then rayon)
+    let rayonILV = null;
+    const fKey = domaineBP + '|' + rayonBP + '|' + familleBP;
+    if (BP_FAMILLE_MAP[fKey]) {
+      rayonILV = BP_FAMILLE_MAP[fKey];
+    } else {
+      const rKey = domaineBP + '|' + rayonBP;
+      if (BP_RAYON_MAP[rKey] !== undefined) {
+        rayonILV = BP_RAYON_MAP[rKey];
+      }
+    }
+
+    if (rayonILV === null) continue; // explicitly excluded
+
+    const universILV = rayonILV ? (RAYON_TO_UNIVERS_ILV[rayonILV] || null) : null;
+
+    products.push({ domaine, rayon: rayonBP, famille: familleBP, ean, designation, prix, rayonILV, universILV, gamme });
+  }
+}
+
+// ============================================================
+// SIMULATEUR TARIFS SERVICES — EMBEDDED DATA
+// Format: [univers, famille, prixMin, prixMax, gar1, gar2, gar3, liv]
+// gar values: 0 = not available, -1 = monthly subscription (excluded)
+// ============================================================
+const SIM_RAW = [
+["Electromenager","LAVE-LINGE",0,150,39.99,49.99,-1,39],["Electromenager","LAVE-LINGE",150,250,69.99,79.99,-1,39],["Electromenager","LAVE-LINGE",250,400,89.99,99.99,-1,39],["Electromenager","LAVE-LINGE",400,450,99.99,109.99,-1,39],["Electromenager","LAVE-LINGE",450,550,119.99,129.99,-1,39],["Electromenager","LAVE-LINGE",550,99999999,139.99,149.99,-1,39],
+["Electromenager","REFRIGERATEUR",0,150,19.99,29.99,-1,39],["Electromenager","REFRIGERATEUR",150,250,39.99,49.99,-1,39],["Electromenager","REFRIGERATEUR",250,300,59.99,69.99,-1,39],["Electromenager","REFRIGERATEUR",300,400,69.99,79.99,-1,39],["Electromenager","REFRIGERATEUR",400,500,89.99,99.99,-1,39],["Electromenager","REFRIGERATEUR",500,600,109.99,119.99,-1,39],["Electromenager","REFRIGERATEUR",600,750,129.99,139.99,-1,39],["Electromenager","REFRIGERATEUR",750,99999999,139.99,149.99,-1,39],
+["Electromenager","REFRIGERATEUR US",0,900,139.99,149.99,-1,79],["Electromenager","REFRIGERATEUR US",900,950,159.99,169.99,-1,79],["Electromenager","REFRIGERATEUR US",950,1000,189.99,199.99,-1,79],["Electromenager","REFRIGERATEUR US",1000,99999999,219.99,229.99,-1,79],
+["Electromenager","SECHE-LINGE",0,250,69.99,79.99,-1,39],["Electromenager","SECHE-LINGE",250,350,79.99,89.99,-1,39],["Electromenager","SECHE-LINGE",350,450,109.99,119.99,-1,39],["Electromenager","SECHE-LINGE",450,500,119.99,129.99,-1,39],["Electromenager","SECHE-LINGE",500,99999999,129.99,139.99,-1,39],
+["Electromenager","COMBINE",0,200,29.99,39.99,-1,39],["Electromenager","COMBINE",200,300,69.99,79.99,-1,39],["Electromenager","COMBINE",300,400,79.99,89.99,-1,39],["Electromenager","COMBINE",400,600,109.99,119.99,-1,39],["Electromenager","COMBINE",600,850,119.99,129.99,-1,39],["Electromenager","COMBINE",850,99999999,139.99,149.99,-1,39],
+["Electromenager","CONGELATEUR",0,200,39.99,49.99,-1,39],["Electromenager","CONGELATEUR",200,350,59.99,69.99,-1,39],["Electromenager","CONGELATEUR",350,500,89.99,99.99,-1,39],["Electromenager","CONGELATEUR",500,900,119.99,129.99,-1,39],["Electromenager","CONGELATEUR",900,99999999,139.99,149.99,-1,39],
+["Electromenager","LAVE-VAISSELLE",0,100,39.99,49.99,-1,39],["Electromenager","LAVE-VAISSELLE",100,150,59.99,69.99,-1,39],["Electromenager","LAVE-VAISSELLE",150,200,79.99,89.99,-1,39],["Electromenager","LAVE-VAISSELLE",200,300,89.99,99.99,-1,39],["Electromenager","LAVE-VAISSELLE",300,400,99.99,109.99,-1,39],["Electromenager","LAVE-VAISSELLE",400,450,109.99,119.99,-1,39],["Electromenager","LAVE-VAISSELLE",450,500,119.99,129.99,-1,39],["Electromenager","LAVE-VAISSELLE",500,700,129.99,139.99,-1,39],["Electromenager","LAVE-VAISSELLE",700,99999999,139.99,159.99,-1,39],
+["Electromenager","TABLE DE CUISSON",0,100,19.99,29.99,-1,39],["Electromenager","TABLE DE CUISSON",100,150,29.99,39.99,-1,39],["Electromenager","TABLE DE CUISSON",150,200,34.99,44.99,-1,39],["Electromenager","TABLE DE CUISSON",200,250,39.99,49.99,-1,39],["Electromenager","TABLE DE CUISSON",250,300,49.99,59.99,-1,39],["Electromenager","TABLE DE CUISSON",300,400,59.99,69.99,-1,39],["Electromenager","TABLE DE CUISSON",400,500,69.99,79.99,-1,39],["Electromenager","TABLE DE CUISSON",500,650,99.99,109.99,-1,39],["Electromenager","TABLE DE CUISSON",650,99999999,109.99,129.99,-1,39],
+["Electromenager","CUISINIERE",0,100,10.99,20.99,-1,39],["Electromenager","CUISINIERE",100,150,19.99,29.99,-1,39],["Electromenager","CUISINIERE",150,200,24.99,34.99,-1,39],["Electromenager","CUISINIERE",200,250,29.99,39.99,-1,39],["Electromenager","CUISINIERE",250,300,39.99,49.99,-1,39],["Electromenager","CUISINIERE",300,400,59.99,69.99,-1,39],["Electromenager","CUISINIERE",400,500,69.99,89.99,-1,39],["Electromenager","CUISINIERE",500,750,89.99,109.99,-1,39],["Electromenager","CUISINIERE",750,900,99.99,119.99,-1,39],["Electromenager","CUISINIERE",900,1000,119.99,139.99,-1,39],["Electromenager","CUISINIERE",1000,99999999,139.99,159.99,-1,39],
+["Electromenager","FOUR",0,150,19.99,29.99,-1,39],["Electromenager","FOUR",150,250,39.99,49.99,-1,39],["Electromenager","FOUR",250,300,44.99,54.99,-1,39],["Electromenager","FOUR",300,400,59.99,69.99,-1,39],["Electromenager","FOUR",400,500,69.99,89.99,-1,39],["Electromenager","FOUR",500,650,79.99,99.99,-1,39],["Electromenager","FOUR",650,99999999,89.99,109.99,-1,39],
+["Electromenager","HOTTE",0,100,14.99,24.99,-1,39],["Electromenager","HOTTE",100,150,19.99,29.99,-1,39],["Electromenager","HOTTE",150,200,24.99,34.99,-1,39],["Electromenager","HOTTE",200,300,39.99,49.99,-1,39],["Electromenager","HOTTE",300,350,49.99,69.99,-1,39],["Electromenager","HOTTE",350,99999999,59.99,79.99,-1,39],
+["Electromenager","TV",0,100,0,19.99,-1,39],["Electromenager","TV",100,150,0,39.99,-1,39],["Electromenager","TV",150,200,0,49.99,-1,39],["Electromenager","TV",200,300,0,69.99,-1,39],["Electromenager","TV",300,400,0,89.99,-1,39],["Electromenager","TV",400,500,0,119.99,-1,39],["Electromenager","TV",500,600,0,129.99,-1,39],["Electromenager","TV",600,700,0,139.99,-1,39],["Electromenager","TV",700,800,0,169.99,-1,39],["Electromenager","TV",800,900,0,189.99,-1,39],["Electromenager","TV",900,1000,0,209.99,-1,39],["Electromenager","TV",1000,1500,0,289.99,-1,39],["Electromenager","TV",1500,2000,0,339.99,-1,39],["Electromenager","TV",2000,99999999,0,389.99,-1,39],
+["Electromenager","FMO (Four Micro-Ondes)",0,50,0,9.99,-1,39],["Electromenager","FMO (Four Micro-Ondes)",50,100,0,14.99,-1,39],["Electromenager","FMO (Four Micro-Ondes)",100,150,0,29.99,-1,39],["Electromenager","FMO (Four Micro-Ondes)",150,200,0,39.99,-1,39],["Electromenager","FMO (Four Micro-Ondes)",200,300,0,49.99,-1,39],["Electromenager","FMO (Four Micro-Ondes)",300,99999999,0,59.99,-1,39],
+["Electromenager","ROBOTS",0,200,0,29.99,-1,39],["Electromenager","ROBOTS",200,300,0,39.99,-1,39],["Electromenager","ROBOTS",300,500,0,54.99,-1,39],["Electromenager","ROBOTS",500,99999999,0,74.99,-1,39],
+["Electromenager","EXPRESSO",0,100,0,19.99,-1,39],["Electromenager","EXPRESSO",100,150,0,24.99,-1,39],["Electromenager","EXPRESSO",150,200,0,29.99,-1,39],["Electromenager","EXPRESSO",200,400,0,39.99,-1,39],["Electromenager","EXPRESSO",400,99999999,0,59.99,-1,39],
+["Electromenager","ASPIRATEUR",0,50,0,14.99,-1,39],["Electromenager","ASPIRATEUR",50,100,0,24.99,-1,39],["Electromenager","ASPIRATEUR",100,150,0,34.99,-1,39],["Electromenager","ASPIRATEUR",150,200,0,49.99,-1,39],["Electromenager","ASPIRATEUR",200,250,0,59.99,-1,39],["Electromenager","ASPIRATEUR",250,300,0,64.99,-1,39],["Electromenager","ASPIRATEUR",300,400,0,79.99,-1,39],["Electromenager","ASPIRATEUR",400,500,0,99.99,-1,39],["Electromenager","ASPIRATEUR",500,600,0,114.99,-1,39],["Electromenager","ASPIRATEUR",600,99999999,0,134.99,-1,39],
+["Electromenager","CAVE A VIN",0,200,0,49.99,-1,39],["Electromenager","CAVE A VIN",200,350,0,59.99,-1,39],["Electromenager","CAVE A VIN",350,500,0,69.99,-1,39],["Electromenager","CAVE A VIN",500,99999999,0,79.99,-1,39],
+["Electromenager","PEM (Petit Electromenager)",0,100,0,10.9,0,39],["Electromenager","PEM (Petit Electromenager)",100,99999999,0,19.9,0,39],
+["Electromenager","CLIM",0,99999999,0,75.9,-1,39],
+["Meubles","SIEGE",0,50,6.99,9.99,0,49],["Meubles","SIEGE",50,100,19.99,24.99,0,49],["Meubles","SIEGE",100,150,29.99,34.99,0,49],["Meubles","SIEGE",150,200,39.99,49.99,0,49],["Meubles","SIEGE",200,250,49.99,59.99,0,69],["Meubles","SIEGE",250,300,59.99,79.99,0,69],["Meubles","SIEGE",300,450,69.99,89.99,0,69],["Meubles","SIEGE",450,550,79.99,99.99,0,95],["Meubles","SIEGE",550,650,89.99,119.99,0,95],["Meubles","SIEGE",650,750,99.99,129.99,0,95],["Meubles","SIEGE",750,1000,109.99,149.99,0,105],["Meubles","SIEGE",1000,1500,139.99,189.99,209.99,125],["Meubles","SIEGE",1500,2000,179.99,229.99,249.99,139],["Meubles","SIEGE",2000,3000,0,0,299.99,139],["Meubles","SIEGE",3000,99999999,0,0,349.99,139],
+["Meubles","LITERIE (Meuble)",0,50,6.99,19.99,0,40],["Meubles","LITERIE (Meuble)",50,100,9.99,24.99,0,40],["Meubles","LITERIE (Meuble)",100,200,19.99,34.99,0,40],["Meubles","LITERIE (Meuble)",200,250,29.99,39.99,0,40],["Meubles","LITERIE (Meuble)",250,300,34.99,49.99,0,40],["Meubles","LITERIE (Meuble)",300,350,39.99,59.99,0,40],["Meubles","LITERIE (Meuble)",350,400,44.99,69.99,0,40],["Meubles","LITERIE (Meuble)",400,450,49.99,79.99,89.99,40],["Meubles","LITERIE (Meuble)",450,500,59.99,89.99,99.99,40],["Meubles","LITERIE (Meuble)",500,550,69.99,99.99,109.99,40],["Meubles","LITERIE (Meuble)",550,600,79.99,109.99,119.99,40],["Meubles","LITERIE (Meuble)",600,650,89.99,119.99,129.99,40],["Meubles","LITERIE (Meuble)",650,700,99.99,129.99,139.99,40],["Meubles","LITERIE (Meuble)",700,750,109.99,139.99,149.99,40],["Meubles","LITERIE (Meuble)",750,800,119.99,149.99,159.99,40],["Meubles","LITERIE (Meuble)",800,850,129.99,159.99,169.99,40],["Meubles","LITERIE (Meuble)",850,900,149.99,169.99,189.99,40],["Meubles","LITERIE (Meuble)",900,1000,0,0,209.99,40],["Meubles","LITERIE (Meuble)",1000,1500,0,0,229.99,40],["Meubles","LITERIE (Meuble)",1500,2000,0,0,249.99,40],["Meubles","LITERIE (Meuble)",2000,3000,0,0,269.99,40],["Meubles","LITERIE (Meuble)",3000,99999999,0,0,289.99,40],
+["Meubles","SEJOUR",0,50,9.99,14.99,0,49],["Meubles","SEJOUR",50,100,14.99,24.99,0,49],["Meubles","SEJOUR",100,150,24.99,39.99,0,49],["Meubles","SEJOUR",150,200,29.99,49.99,0,49],["Meubles","SEJOUR",200,250,39.99,59.99,0,69],["Meubles","SEJOUR",250,300,49.99,69.99,0,69],["Meubles","SEJOUR",300,500,69.99,79.99,0,69],["Meubles","SEJOUR",500,750,79.99,89.99,0,95],["Meubles","SEJOUR",750,1000,89.99,99.99,0,105],["Meubles","SEJOUR",1000,1200,109.99,119.99,0,125],["Meubles","SEJOUR",1200,1500,129.99,139.99,0,125],["Meubles","SEJOUR",1500,2000,149.99,159.99,0,139],["Meubles","SEJOUR",2000,3000,179.99,189.99,0,139],["Meubles","SEJOUR",3000,99999999,209.99,219.99,0,139],
+["Meubles","CAC (Canape/Convertible)",0,50,9.99,14.99,0,49],["Meubles","CAC (Canape/Convertible)",50,100,14.99,19.99,0,49],["Meubles","CAC (Canape/Convertible)",100,150,24.99,34.99,0,49],["Meubles","CAC (Canape/Convertible)",150,200,34.99,49.99,0,49],["Meubles","CAC (Canape/Convertible)",200,250,39.99,59.99,0,69],["Meubles","CAC (Canape/Convertible)",250,300,49.99,69.99,0,69],["Meubles","CAC (Canape/Convertible)",300,1000,79.99,89.99,0,69],["Meubles","CAC (Canape/Convertible)",1000,99999999,99.99,109.99,0,125],
+["Meubles","RANGEMENT",0,50,6.99,9.99,0,49],["Meubles","RANGEMENT",50,100,14.99,19.99,0,49],["Meubles","RANGEMENT",100,150,19.99,29.99,0,49],["Meubles","RANGEMENT",150,300,29.99,39.99,0,49],["Meubles","RANGEMENT",300,99999999,39.99,59.99,0,69],
+["Meubles","CUISINE (meuble)",0,1000,129.99,0,0,49],["Meubles","CUISINE (meuble)",1000,1500,149.99,0,0,125],["Meubles","CUISINE (meuble)",1500,2000,199.99,0,0,139],["Meubles","CUISINE (meuble)",2000,2500,249.99,0,0,139],["Meubles","CUISINE (meuble)",2500,3000,299.99,0,0,139],["Meubles","CUISINE (meuble)",3000,4000,349.99,0,0,139],["Meubles","CUISINE (meuble)",4000,5000,399.99,0,0,139],["Meubles","CUISINE (meuble)",5000,7000,0,599.99,0,139],["Meubles","CUISINE (meuble)",7000,10000,0,749.99,0,139],["Meubles","CUISINE (meuble)",10000,99999999,0,999.99,0,139],
+["Literie","LITERIE",0,50,6.99,19.99,0,40],["Literie","LITERIE",50,100,9.99,24.99,0,40],["Literie","LITERIE",100,200,19.99,34.99,0,40],["Literie","LITERIE",200,250,29.99,39.99,0,40],["Literie","LITERIE",250,300,34.99,49.99,0,40],["Literie","LITERIE",300,350,39.99,59.99,0,40],["Literie","LITERIE",350,400,44.99,69.99,0,40],["Literie","LITERIE",400,450,49.99,79.99,89.99,40],["Literie","LITERIE",450,500,59.99,89.99,99.99,40],["Literie","LITERIE",500,550,69.99,99.99,109.99,40],["Literie","LITERIE",550,600,79.99,109.99,119.99,40],["Literie","LITERIE",600,650,89.99,119.99,129.99,40],["Literie","LITERIE",650,700,99.99,129.99,139.99,40],["Literie","LITERIE",700,750,109.99,139.99,149.99,40],["Literie","LITERIE",750,800,119.99,149.99,159.99,40],["Literie","LITERIE",800,850,129.99,159.99,169.99,40],["Literie","LITERIE",850,900,149.99,169.99,189.99,40],["Literie","LITERIE",900,1000,0,0,209.99,40],["Literie","LITERIE",1000,1500,0,0,229.99,40],["Literie","LITERIE",1500,2000,0,0,249.99,40],["Literie","LITERIE",2000,3000,0,0,269.99,40],["Literie","LITERIE",3000,99999999,0,0,289.99,40]
+];
+
+function initEmbeddedSimulateur() {
+  simDonnees = SIM_RAW.map(r => ({
+    univers: r[0], famille: r[1], prixMin: r[2], prixMax: r[3],
+    gar1: r[4], gar2: r[5], gar3: r[6], liv: r[7]
+  }));
+}
+
+// ============================================================
+// WARRANTY LOOKUP
+// ============================================================
+function lookupWarrantyAll(universILV, rayonILV, prix) {
+  // Find matching row in simDonnees
+  const familySim = rayonILV;
+  let match = null;
+  for (const d of simDonnees) {
+    if (d.univers === universILV && d.famille === familySim && prix >= d.prixMin && prix <= d.prixMax) {
+      match = d;
+      break;
+    }
+  }
+  if (!match) {
+    for (const d of simDonnees) {
+      if (d.famille === familySim && prix >= d.prixMin && prix <= d.prixMax) {
+        match = d;
+        break;
+      }
+    }
+  }
+
+  if (!match) return { gar1: 0, gar2: 0, gar3: 0, livraison: 0 };
+
+  return {
+    gar1: match.gar1 > 0 ? match.gar1 : 0,
+    gar2: match.gar2 > 0 ? match.gar2 : 0,
+    gar3: match.gar3 > 0 ? match.gar3 : 0,
+    livraison: match.liv > 0 ? match.liv : 0
+  };
+}
+
+function pickGarantie(warAll, level) {
+  if (level === 3 && warAll.gar3 > 0) return warAll.gar3;
+  if (level === 2 && warAll.gar2 > 0) return warAll.gar2;
+  if (level === 1 && warAll.gar1 > 0) return warAll.gar1;
+  return 0;
+}
+
+function bestAvailableLevel(warAll) {
+  if (warAll.gar3 > 0) return 3;
+  if (warAll.gar2 > 0) return 2;
+  if (warAll.gar1 > 0) return 1;
+  return 0;
+}
+
+// Backward-compatible wrapper
+function lookupWarranty(universILV, rayonILV, prix) {
+  const all = lookupWarrantyAll(universILV, rayonILV, prix);
+  const level = bestAvailableLevel(all);
+  return { garantie: pickGarantie(all, level), livraison: all.livraison };
+}
+
+// ============================================================
+// CREDIT CALCULATION
+// ============================================================
+function determinerTranche(montant) {
+  if (montant <= 3000) return 1;
+  if (montant <= 6000) return 2;
+  return 3;
+}
+
+function calculerCredit(duree, famille, montant_finance) {
+  const tranche = determinerTranche(montant_finance);
+  const taeg = TAEG[duree][tranche];
+
+  if (famille === "gratuit" || COEFF_MENSUELS[duree][tranche] === null) {
+    const mensualite = montant_finance / duree;
+    return { mensualite: Math.round(mensualite * 100) / 100, taeg, cout_credit: 0, montant_total_du: montant_finance, interets_rembourses: null };
+  }
+
+  const coeff = COEFF_MENSUELS[duree][tranche];
+  const mensualite = Math.round(montant_finance * coeff * 100) / 100;
+  const montant_total_du = Math.round(mensualite * duree * 100) / 100;
+  const cout_credit = Math.round((montant_total_du - montant_finance) * 100) / 100;
+  const interets_rembourses = famille === "ir" ? cout_credit : null;
+
+  return { mensualite, taeg, cout_credit, montant_total_du, interets_rembourses };
+}
+
+// ============================================================
+// STRATEGY: determine default credit type
+// ============================================================
+function determineDefaultCredit(prix, universILV) {
+  if (!universILV) return null;
+  for (const rule of STRATEGIE_ILV) {
+    if (prix >= rule.min && prix < rule.max && rule.univers.includes(universILV)) {
+      return rule.credit;
+    }
+  }
+  return null;
+}
+
+// ============================================================
+// FORMATTING
+// ============================================================
+function formatMontant(montant) {
+  const rounded = Math.round(montant * 100) / 100;
+  const parts = rounded.toFixed(2).split('.');
+  const entiere = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0');
+  return entiere + ',' + parts[1] + '\u00A0\u20AC';
+}
+
+function formatPrixService(prix) {
+  return prix.toFixed(2).replace('.', ',') + '\u20AC';
+}
+
+function formatMensualite(montant) {
+  return montant.toFixed(2).replace('.', ',');
+}
+
+// ============================================================
+// UI: TABS
+// ============================================================
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b, i) => {
+    b.classList.toggle('active', (tab === 'dropdown' && i === 0) || (tab === 'manual' && i === 1));
+  });
+  document.getElementById('tab-dropdown').classList.toggle('active', tab === 'dropdown');
+  document.getElementById('tab-manual').classList.toggle('active', tab === 'manual');
+}
+
+// ============================================================
+// UI: EAN DROPDOWN
+// ============================================================
+let eanFilteredProducts = [];
+let selectedEanProduct = null;
+let selectedEanWarAll = null;
+
+function populateEanDropdown(filtered) {
+  const sel = document.getElementById('ean-select');
+  const list = filtered || products;
+
+  // Tri : LIB_DOMAINE \u2192 LIB_RAYON \u2192 d\u00E9signation (ordre alphab\u00E9tique)
+  const sorted = list.slice().sort((a, b) => {
+    const da = (a.domaine || '').toUpperCase(), db = (b.domaine || '').toUpperCase();
+    if (da !== db) return da < db ? -1 : 1;
+    const ra = (a.rayon || '').toUpperCase(), rb = (b.rayon || '').toUpperCase();
+    if (ra !== rb) return ra < rb ? -1 : 1;
+    return (a.designation || '').localeCompare(b.designation || '', 'fr', { sensitivity: 'base', numeric: true });
+  });
+  eanFilteredProducts = sorted;
+
+  sel.innerHTML = '';
+  if (!sorted.length) {
+    sel.innerHTML = '<option value="" disabled>Aucun produit trouv\u00E9</option>';
+    return;
+  }
+  // Groupement optgroup : "DOMAINE \u203A RAYON"
+  let lastKey = '';
+  sorted.forEach((p, i) => {
+    const dom = (p.domaine || 'Autre').trim();
+    const ray = (p.rayon || '').trim();
+    const key = dom + '\u0001' + ray;
+    if (key !== lastKey) {
+      const grp = document.createElement('optgroup');
+      grp.label = ray ? (dom + ' \u203A ' + ray) : dom;
+      sel.appendChild(grp);
+      lastKey = key;
+    }
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = (p.ean ? p.ean + ' \u2014 ' : '') + p.designation + ' \u2014 ' + formatMontant(p.prix);
+    sel.lastElementChild.appendChild(opt);
+  });
+}
+
+function getCascadeFiltered() {
+  const dom = document.getElementById('cascade-domaine')?.value || '';
+  const ray = document.getElementById('cascade-rayon')?.value || '';
+  const gam = document.getElementById('cascade-gamme')?.value || '';
+  const query = document.getElementById('ean-filter')?.value.trim().toUpperCase() || '';
+  return products.filter(p => {
+    if (dom && (p.domaine || '') !== dom) return false;
+    if (ray && (p.rayon || '') !== ray) return false;
+    if (gam && (p.gamme || '') !== gam) return false;
+    if (query && !(p.ean || '').toUpperCase().includes(query) && !(p.designation || '').toUpperCase().includes(query)) return false;
+    return true;
+  });
+}
+
+function populateCascadeDomaine() {
+  const sel = document.getElementById('cascade-domaine');
+  if (!sel) return;
+  const domaines = [...new Set(products.map(p => p.domaine || '').filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+  sel.innerHTML = '<option value="">-- Tous les domaines (' + products.length + ') --</option>';
+  domaines.forEach(d => {
+    const count = products.filter(p => p.domaine === d).length;
+    const opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = d + ' (' + count + ')';
+    sel.appendChild(opt);
+  });
+}
+
+function populateCascadeRayon() {
+  const sel = document.getElementById('cascade-rayon');
+  if (!sel) return;
+  const dom = document.getElementById('cascade-domaine').value;
+  const source = dom ? products.filter(p => p.domaine === dom) : products;
+  const rayons = [...new Set(source.map(p => p.rayon || '').filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+  sel.innerHTML = '<option value="">-- Tous les rayons (' + source.length + ') --</option>';
+  rayons.forEach(r => {
+    const count = source.filter(p => p.rayon === r).length;
+    const opt = document.createElement('option');
+    opt.value = r;
+    opt.textContent = r + ' (' + count + ')';
+    sel.appendChild(opt);
+  });
+}
+
+function populateCascadeGamme() {
+  const sel = document.getElementById('cascade-gamme');
+  if (!sel) return;
+  const dom = document.getElementById('cascade-domaine')?.value || '';
+  const ray = document.getElementById('cascade-rayon')?.value || '';
+  let source = products;
+  if (dom) source = source.filter(p => p.domaine === dom);
+  if (ray) source = source.filter(p => p.rayon === ray);
+  const gammes = [...new Set(source.map(p => p.gamme || '').filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+  sel.innerHTML = '<option value="">-- Toutes les gammes (' + source.length + ') --</option>';
+  gammes.forEach(g => {
+    const count = source.filter(p => p.gamme === g).length;
+    const opt = document.createElement('option');
+    opt.value = g;
+    opt.textContent = g + ' (' + count + ')';
+    sel.appendChild(opt);
+  });
+}
+
+function onCascadeDomaineChange() {
+  populateCascadeRayon();
+  populateCascadeGamme();
+  filterEanDropdown();
+}
+
+function onCascadeRayonChange() {
+  populateCascadeGamme();
+  filterEanDropdown();
+}
+
+function onCascadeGammeChange() {
+  filterEanDropdown();
+}
+
+function filterEanDropdown() {
+  const filtered = getCascadeFiltered();
+  populateEanDropdown(filtered);
+  const countEl = document.getElementById('ean-count');
+  if (countEl) countEl.textContent = '(' + filtered.length + ' produits)';
+  document.getElementById('ean-product-info').style.display = 'none';
+  selectedEanProduct = null;
+}
+
+function onEanSelect() {
+  const sel = document.getElementById('ean-select');
+  const idx = parseInt(sel.value);
+  if (isNaN(idx)) return;
+
+  const p = eanFilteredProducts[idx];
+  if (!p) return;
+
+  selectedEanProduct = p;
+
+  // Display product info
+  document.getElementById('ean-info-name').textContent = p.designation;
+  document.getElementById('ean-info-prix').textContent = formatMontant(p.prix);
+  document.getElementById('ean-info-ean').textContent = 'EAN: ' + (p.ean || '-');
+  document.getElementById('ean-info-rayon').textContent = p.rayonILV || p.rayon || '-';
+  document.getElementById('ean-info-gamme').textContent = p.gamme ? 'Gamme: ' + p.gamme : '';
+
+  // Lookup all warranty levels
+  selectedEanWarAll = lookupWarrantyAll(p.universILV, p.rayonILV, p.prix);
+
+  // Default to garantie 3* (interne niv.2) si dispo, sinon meilleur dispo (Premium niv.3 toujours indisponible)
+  const levelSel = document.getElementById('ean-garantie-level');
+  const bestLevel = bestAvailableLevel(selectedEanWarAll);
+  const defaultLevel = selectedEanWarAll.gar2 > 0 ? 2 : (bestLevel === 3 ? 1 : bestLevel);
+  levelSel.value = defaultLevel;
+
+  // Update displayed prices
+  document.getElementById('ean-garantie-prix').value = pickGarantie(selectedEanWarAll, defaultLevel);
+  document.getElementById('ean-livraison-prix').textContent = formatPrixService(selectedEanWarAll.livraison);
+  document.getElementById('ean-include-liv').checked = false;
+
+  // Enable/disable unavailable levels (Premium niv.3 reste toujours indisponible)
+  levelSel.querySelectorAll('option').forEach(opt => {
+    const lv = parseInt(opt.value);
+    if (lv === 3) { opt.disabled = true; return; }
+    if (lv === 0) { opt.disabled = false; return; }
+    const available = selectedEanWarAll['gar' + lv] > 0;
+    opt.disabled = !available;
+    if (!available) opt.textContent = opt.textContent.replace(/ \u2014 .*/, '') + ' \u2014 indisponible';
+    else opt.textContent = opt.textContent.replace(/ \u2014 .*/, '');
+  });
+
+  document.getElementById('ean-product-info').style.display = 'block';
+}
+
+function onGarantieLevelChange() {
+  if (!selectedEanWarAll) return;
+  const level = parseInt(document.getElementById('ean-garantie-level').value);
+  document.getElementById('ean-garantie-prix').value = pickGarantie(selectedEanWarAll, level);
+}
+
+function addEanProduct() {
+  if (!selectedEanProduct) return;
+
+  const p = selectedEanProduct;
+  const garantie = parseFloat(document.getElementById('ean-garantie-prix').value) || 0;
+  const livPrix = selectedEanWarAll ? selectedEanWarAll.livraison : 0;
+  const includeLiv = document.getElementById('ean-include-liv').checked;
+  const includeGar = document.getElementById('ean-include-gar').checked;
+  const defaultCredit = determineDefaultCredit(p.prix, p.universILV);
+  const credits = {};
+  if (defaultCredit) credits[defaultCredit] = true;
+
+  cart.push({
+    id: Date.now() + Math.random(),
+    ean: p.ean || '',
+    designation: p.designation,
+    prix: p.prix,
+    domaine: p.domaine,
+    rayon: p.rayon,
+    rayonILV: p.rayonILV || '',
+    universILV: p.universILV || '',
+    garantie,
+    livraison: livPrix,
+    includeLiv,
+    includeGar,
+    credits
+  });
+
+  // Reset selection
+  document.getElementById('ean-product-info').style.display = 'none';
+  document.getElementById('ean-select').selectedIndex = -1;
+  selectedEanProduct = null;
+  selectedEanWarAll = null;
+
+  renderCart();
+}
+
+// ============================================================
+// UI: MANUAL ENTRY
+// ============================================================
+let manualWarAll = null;
+
+function populateDomaineDropdown() {
+  const sel = document.getElementById('m-domaine');
+  const univSet = new Set(['PEM', 'GEM/TV', 'MEUBLE', 'LITERIE', 'SIEGE']);
+  sel.innerHTML = '<option value="">-- S\u00E9lectionnez --</option>';
+  univSet.forEach(u => {
+    sel.innerHTML += '<option value="' + escH(u) + '">' + escH(u) + '</option>';
+  });
+}
+
+function onManualEanInput() {
+  const ean = document.getElementById('m-ean').value.trim();
+  if (ean.length < 5) return;
+
+  // Try to find this EAN in loaded products
+  const found = products.find(p => p.ean === ean);
+  if (found) {
+    document.getElementById('m-designation').value = found.designation;
+    document.getElementById('m-prix').value = found.prix;
+
+    // Set univers/rayon if available
+    if (found.universILV) {
+      document.getElementById('m-domaine').value = found.universILV;
+      onDomaineChange();
+      if (found.rayonILV) {
+        document.getElementById('m-rayon').value = found.rayonILV;
+      }
+    }
+
+    onManualFieldChange();
+  }
+}
+
+function onDomaineChange() {
+  const univers = document.getElementById('m-domaine').value;
+  const selR = document.getElementById('m-rayon');
+  selR.innerHTML = '<option value="">-- S\u00E9lectionnez --</option>';
+
+  if (!univers) return;
+
+  Object.entries(RAYON_TO_UNIVERS_ILV).forEach(([rayon, u]) => {
+    if (u === univers) {
+      selR.innerHTML += '<option value="' + escH(rayon) + '">' + escH(rayon) + '</option>';
+    }
+  });
+
+  onManualFieldChange();
+}
+
+function onManualFieldChange() {
+  const prix = parseFloat(document.getElementById('m-prix').value) || 0;
+  const rayon = document.getElementById('m-rayon').value;
+  const univers = document.getElementById('m-domaine').value;
+
+  if (prix > 0 && rayon) {
+    manualWarAll = lookupWarrantyAll(univers, rayon, prix);
+    // Default to 3 étoiles if available
+    const bestLevel = manualWarAll.gar2 > 0 ? 2 : (manualWarAll.gar1 > 0 ? 1 : 0);
+    document.getElementById('m-garantie-level').value = bestLevel;
+    document.getElementById('m-garantie').value = pickGarantie(manualWarAll, bestLevel);
+    document.getElementById('m-livraison').value = manualWarAll.livraison;
+    document.getElementById('m-livraison-display').textContent = formatPrixService(manualWarAll.livraison);
+  }
+}
+
+function onManualGarantieLevelChange() {
+  if (!manualWarAll) return;
+  const level = parseInt(document.getElementById('m-garantie-level').value);
+  document.getElementById('m-garantie').value = pickGarantie(manualWarAll, level);
+}
+
+document.getElementById('m-prix').addEventListener('change', onManualFieldChange);
+
+function addManualProduct() {
+  const designation = document.getElementById('m-designation').value.trim();
+  const prix = parseFloat(document.getElementById('m-prix').value) || 0;
+  const univers = document.getElementById('m-domaine').value;
+  const rayon = document.getElementById('m-rayon').value;
+  const garantie = parseFloat(document.getElementById('m-garantie').value) || 0;
+  const livraison = parseFloat(document.getElementById('m-livraison').value) || 0;
+  const includeLiv = document.getElementById('m-include-liv').checked;
+  const includeGar = document.getElementById('m-include-gar').checked;
+
+  if (!designation || prix <= 0) {
+    alert('Veuillez renseigner la d\u00E9signation et le prix.');
+    return;
+  }
+
+  const defaultCredit = determineDefaultCredit(prix, univers);
+  const credits = {};
+  if (defaultCredit) credits[defaultCredit] = true;
+
+  const ean = document.getElementById('m-ean').value.trim();
+  cart.push({
+    id: Date.now() + Math.random(),
+    ean,
+    designation,
+    prix,
+    domaine: univers,
+    rayon: rayon,
+    rayonILV: rayon,
+    universILV: univers,
+    garantie,
+    livraison,
+    includeLiv,
+    includeGar,
+    credits
+  });
+
+  // Reset form
+  document.getElementById('m-ean').value = '';
+  document.getElementById('m-designation').value = '';
+  document.getElementById('m-prix').value = '';
+  document.getElementById('m-garantie').value = '0';
+  document.getElementById('m-livraison').value = '0';
+  document.getElementById('m-include-liv').checked = false;
+  document.getElementById('m-include-gar').checked = true;
+  document.getElementById('m-livraison-display').textContent = '0,00\u20AC';
+  manualWarAll = null;
+
+  renderCart();
+}
+
+// ============================================================
+// UI: CART
+// ============================================================
+function renderCart() {
+  const emptyEl = document.getElementById('cart-empty');
+  const wrapEl = document.getElementById('cart-wrap');
+  const bodyEl = document.getElementById('cart-body');
+
+  if (!cart.length) {
+    emptyEl.style.display = 'block';
+    wrapEl.style.display = 'none';
+    return;
+  }
+
+  emptyEl.style.display = 'none';
+  wrapEl.style.display = 'block';
+
+  bodyEl.innerHTML = cart.map((item, idx) => {
+    const creditCBs = Object.keys(CREDIT_TYPES).map(ck => {
+      const ct = CREDIT_TYPES[ck];
+      const checked = item.credits[ck] ? ' checked' : '';
+      return '<label style="display:inline-flex;align-items:center;gap:3px;margin-right:8px;font-size:11px;white-space:nowrap;color:#bbb;">' +
+        '<input type="checkbox" data-idx="' + idx + '" data-ck="' + ck + '" onchange="toggleCredit(' + idx + ',\'' + ck + '\',this.checked)"' + checked + '>' +
+        ct.label + '</label>';
+    }).join('');
+
+    const garIncluded = item.includeGar !== false;
+    const garCell = garIncluded
+      ? formatPrixService(item.garantie)
+      : '<span style="text-decoration:line-through;color:#777;">' + formatPrixService(item.garantie) + '</span> <span style="font-size:10px;color:#999;">(non inclus)</span>';
+    return '<tr>' +
+      '<td style="max-width:200px;">' + escH(item.designation) + '<br><span style="font-size:10px;color:#777;">' + escH(item.rayonILV || '-') + ' / ' + escH(item.universILV || '-') + '</span></td>' +
+      '<td><input type="number" value="' + item.prix + '" step="0.01" min="0" onchange="updateCartPrice(' + idx + ',this.value)" style="width:90px;"></td>' +
+      '<td>' + garCell + '</td>' +
+      '<td>' + creditCBs + '</td>' +
+      '<td><span class="cart-remove" onclick="removeCartItem(' + idx + ')">&times;</span></td>' +
+      '</tr>';
+  }).join('');
+}
+
+function toggleCredit(idx, ck, checked) {
+  if (checked) cart[idx].credits[ck] = true;
+  else delete cart[idx].credits[ck];
+}
+
+function updateCartPrice(idx, val) {
+  cart[idx].prix = parseFloat(val) || 0;
+  // Re-lookup warranty
+  const item = cart[idx];
+  if (item.universILV && item.rayonILV) {
+    const wInfo = lookupWarranty(item.universILV, item.rayonILV, item.prix);
+    item.garantie = wInfo.garantie;
+    item.livraison = wInfo.livraison;
+  }
+  renderCart();
+}
+
+function removeCartItem(idx) {
+  cart.splice(idx, 1);
+  renderCart();
+}
+
+// ============================================================
+// GENERATE ILV PAGES
+// ============================================================
+function makePdfFilename(item, creditKey, variant) {
+  const ean = (item.ean || 'sans-ean').replace(/[^a-zA-Z0-9]/g, '_');
+  const famille = (item.famille || item.rayonILV || 'autre').replace(/[^a-zA-Z0-9àâäéèêëïîôùûüç()-]/gi, '_');
+  return famille + '_' + ean + '_' + creditKey + '_' + variant + '.pdf';
+}
+
+async function generateAllILV() {
+  const output = document.getElementById('output');
+  output.innerHTML = '';
+  pageCounter = 0;
+  generatedPagesMeta = [];
+
+  if (!cart.length) { alert('Le panier est vide.'); return; }
+
+  cart.forEach(item => {
+    Object.keys(item.credits).forEach(creditKey => {
+      if (!item.credits[creditKey]) return;
+      const ct = CREDIT_TYPES[creditKey];
+      if (!ct) return;
+
+      const wantGar = item.includeGar !== false && item.garantie > 0;
+      ct.variants.forEach(variant => {
+        if (wantGar) {
+          // User wants garantie → only generate warranty variants
+          if (variant === 'sans') return;
+          if (variant === 'gar_liv' && (!item.includeLiv || item.livraison <= 0)) return;
+        } else {
+          // No garantie (or unavailable) → only generate "sans"
+          if (variant !== 'sans') return;
+        }
+
+        const html = generatePage(creditKey, variant, item);
+        output.insertAdjacentHTML('beforeend', html);
+        generatedPagesMeta.push({ filename: makePdfFilename(item, creditKey, variant) });
+      });
+    });
+  });
+
+  if (output.innerHTML === '') {
+    output.innerHTML = '<p style="color:#999;text-align:center;">Aucune page g\u00E9n\u00E9r\u00E9e. V\u00E9rifiez les types de cr\u00E9dit s\u00E9lectionn\u00E9s.</p>';
+  }
+
+  document.getElementById('btn-pdf').style.display = 'inline-block';
+  await renderVectorPages();
+  output.scrollIntoView({ behavior: 'smooth' });
+}
+
+// ============================================================
+// BATCH PROCESSING
+// ============================================================
+let batchEanList = null; // null = use all products, array = specific EANs
+
+function loadBatchFile() {
+  const fileEl = document.getElementById('file-batch');
+  if (!fileEl.files.length) { alert('S\u00E9lectionnez un fichier.'); return; }
+
+  const file = fileEl.files[0];
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+      // Extract EANs from first non-empty column
+      batchEanList = [];
+      for (let r = 0; r < rows.length; r++) {
+        for (let c = 0; c < rows[r].length; c++) {
+          const val = String(rows[r][c]).trim();
+          if (val && /^\d{8,13}$/.test(val)) {
+            batchEanList.push(val);
+            break;
+          }
+        }
+      }
+
+      // Match against loaded products
+      const matched = products.filter(p => batchEanList.includes(p.ean));
+      document.getElementById('batch-stats').textContent =
+        batchEanList.length + ' EAN dans le fichier \u00B7 ' + matched.length + ' produits trouv\u00E9s dans la base';
+      document.getElementById('batch-list-info').style.display = 'block';
+    } catch(ex) {
+      alert('Erreur lecture fichier: ' + ex.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function useBatchAll() {
+  batchEanList = null;
+  document.getElementById('batch-stats').textContent =
+    products.length + ' produits charg\u00E9s seront trait\u00E9s (selon prix minimum)';
+  document.getElementById('batch-list-info').style.display = 'block';
+}
+
+async function generateBatchILV() {
+  const prixMin = parseFloat(document.getElementById('batch-prix-min').value) || 0;
+  const garLevel = parseInt(document.getElementById('batch-garantie-level').value);
+  const includeLiv = document.getElementById('batch-include-liv').checked;
+  const includeGar = document.getElementById('batch-include-gar').checked;
+  const varGar = document.getElementById('batch-var-gar').checked;
+  const varGarLiv = document.getElementById('batch-var-gar-liv').checked;
+  const varSans = document.getElementById('batch-var-sans').checked;
+
+  // Filter products
+  let prods = batchEanList
+    ? products.filter(p => batchEanList.includes(p.ean))
+    : products.slice();
+
+  prods = prods.filter(p => p.prix >= prixMin && p.universILV);
+
+  if (!prods.length) { alert('Aucun produit ne correspond aux crit\u00E8res.'); return; }
+
+  const progressWrap = document.getElementById('batch-progress-wrap');
+  const progressFill = document.getElementById('batch-progress-fill');
+  const progressText = document.getElementById('batch-progress-text');
+  progressWrap.style.display = 'block';
+
+  // Build all pages in a hidden container
+  const output = document.getElementById('output');
+  output.innerHTML = '';
+  pageCounter = 0;
+
+  let totalPages = 0;
+  const pageInfos = []; // {element, filename}
+
+  for (const p of prods) {
+    const creditKey = determineDefaultCredit(p.prix, p.universILV);
+    if (!creditKey) continue;
+
+    const ct = CREDIT_TYPES[creditKey];
+    const warAll = lookupWarrantyAll(p.universILV, p.rayonILV, p.prix);
+    const garantie = pickGarantie(warAll, garLevel);
+    const livraison = warAll.livraison;
+
+    const item = {
+      ean: p.ean || '',
+      designation: p.designation,
+      prix: p.prix,
+      domaine: p.domaine,
+      rayon: p.rayon,
+      rayonILV: p.rayonILV || '',
+      universILV: p.universILV || '',
+      garantie,
+      livraison,
+      includeLiv,
+      includeGar
+    };
+
+    const variants = [];
+    const wantGar = includeGar && garantie > 0;
+    if (wantGar) {
+      if (varGar) variants.push('gar');
+      if (varGarLiv && includeLiv && livraison > 0) variants.push('gar_liv');
+    } else {
+      if (varSans) variants.push('sans');
+    }
+
+    for (const variant of variants) {
+      const html = generatePage(creditKey, variant, item);
+      output.insertAdjacentHTML('beforeend', html);
+      const pageEl = output.lastElementChild;
+      pageInfos.push({ element: pageEl, filename: makePdfFilename(item, creditKey, variant) });
+      totalPages++;
+    }
+  }
+
+  if (!totalPages) {
+    progressWrap.style.display = 'none';
+    alert('Aucune ILV g\u00E9n\u00E9r\u00E9e. V\u00E9rifiez les crit\u00E8res.');
+    return;
+  }
+
+  await renderVectorPages();
+  progressText.textContent = '0 / ' + totalPages + ' pages converties en PDF...';
+
+  // Generate PDFs
+  const zip = new JSZip();
+  const folder = zip.folder('output_ILV');
+
+  for (let i = 0; i < pageInfos.length; i++) {
+    const info = pageInfos[i];
+    const pdfBytes = await renderPageToPDF(info.element);
+    folder.file(info.filename, pdfBytes);
+
+    const pct = Math.round(((i + 1) / totalPages) * 100);
+    progressFill.style.width = pct + '%';
+    progressText.textContent = (i + 1) + ' / ' + totalPages + ' pages converties en PDF...';
+
+    // Yield to UI
+    await new Promise(r => setTimeout(r, 10));
+  }
+
+  progressText.textContent = 'Cr\u00E9ation du fichier ZIP...';
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(zipBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'ILV_output_' + new Date().toISOString().slice(0, 10) + '.zip';
+  a.click();
+  URL.revokeObjectURL(url);
+
+  progressText.textContent = totalPages + ' ILV export\u00E9es en PDF dans le ZIP.';
+  progressFill.style.width = '100%';
+}
+
+// ============================================================
+// PDF EXPORT (single page + bulk)
+// ============================================================
+async function renderPageToPDF(pageEl) {
+  // A5 dimensions: 148mm x 210mm = 419.53 x 595.28 pt
+  const A5_W = 148;
+  const A5_H = 210;
+  const scale = 3; // high DPI for quality
+
+  const canvas = await html2canvas(pageEl, {
+    scale: scale,
+    useCORS: true,
+    backgroundColor: '#ffffff',
+    width: pageEl.offsetWidth,
+    height: pageEl.offsetHeight,
+    logging: false
+  });
+
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
+  const imgData = canvas.toDataURL('image/jpeg', 0.92);
+  pdf.addImage(imgData, 'JPEG', 0, 0, A5_W, A5_H);
+  return pdf.output('arraybuffer');
+}
+
+async function exportAllPDF() {
+  // Exclut les pages marqu\u00E9es "mensualit\u00E9 < 16\u20AC"
+  const pages = document.querySelectorAll('#output .page:not(.page--excluded)');
+  if (!pages.length) { alert('Aucune page \u00E0 exporter.'); return; }
+
+  const progressWrap = document.getElementById('pdf-progress-wrap');
+  const progressFill = document.getElementById('pdf-progress-fill');
+  const progressText = document.getElementById('pdf-progress-text');
+  progressWrap.style.display = 'block';
+  progressFill.style.width = '0%';
+
+  const zip = new JSZip();
+  const folder = zip.folder('output_ILV');
+
+  for (let i = 0; i < pages.length; i++) {
+    const pdfBytes = await renderPageToPDF(pages[i]);
+    const fname = (generatedPagesMeta[i] && generatedPagesMeta[i].filename)
+      || 'ILV_' + String(i + 1).padStart(3, '0') + '.pdf';
+    folder.file(fname, pdfBytes);
+
+    const pct = Math.round(((i + 1) / pages.length) * 100);
+    progressFill.style.width = pct + '%';
+    progressText.textContent = (i + 1) + ' / ' + pages.length + ' pages...';
+    await new Promise(r => setTimeout(r, 10));
+  }
+
+  progressText.textContent = 'Cr\u00E9ation du ZIP...';
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(zipBlob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'ILV_output_' + new Date().toISOString().slice(0, 10) + '.zip';
+  a.click();
+  URL.revokeObjectURL(url);
+
+  progressText.textContent = pages.length + ' ILV export\u00E9es.';
+}
+
+// ============================================================
+// NEW generatePage: produces a <section class="page"> placeholder.
+// Canvas + overlay fields are injected by renderVectorPages().
+// ============================================================
+function generatePage(creditKey, variant, product) {
+  pageCounter++;
+  const slug = CREDITKEY_TO_SLUG[creditKey];
+  const pageNum = VARIANT_TO_PAGE[variant];
+  if (!slug || !pageNum) {
+    return '<section class="page" data-error="1"><div style="padding:20px;color:#c00;">Config manquante: ' + creditKey + ' / ' + variant + '</div></section>';
+  }
+  const ct = CREDIT_TYPES[creditKey];
+  const duree = ct.duree;
+  const famille = ct.famille;
+
+  // Compute montant finance for values
+  let montant_finance = product.prix;
+  if (variant === 'gar') montant_finance = product.prix + product.garantie;
+  else if (variant === 'gar_liv') montant_finance = product.prix + product.garantie + product.livraison;
+  const calc = calculerCredit(duree, famille, montant_finance);
+
+  // R\u00E8gle l\u00E9gale : pas d'ILV si la mensualit\u00E9 est strictement inf\u00E9rieure \u00E0 16\u20AC
+  if (calc.mensualite < 16) {
+    return '<section class="page page--excluded" data-excluded="1">' +
+      '<div style="padding:18mm 10mm;text-align:center;background:#fff;height:100%;display:flex;flex-direction:column;justify-content:center;align-items:center;font-family:Inter,sans-serif;">' +
+      '<div style="font-size:6mm;font-weight:900;color:#C8102E;margin-bottom:4mm;">ILV non disponible</div>' +
+      '<div style="font-size:3.5mm;color:#333;line-height:1.4;max-width:90%;">' +
+      'La mensualit\u00E9 calcul\u00E9e (' + formatMensualite(calc.mensualite) + '\u00A0\u20AC) est inf\u00E9rieure au minimum r\u00E9glementaire de 16\u00A0\u20AC/mois.' +
+      '<br><br>' +
+      'Cr\u00E9dit ' + creditKey.toUpperCase() + ' \u00B7 variante ' + variant + '<br>' +
+      '<span style="color:#888;font-size:3mm;">' + escH(product.designation) + ' \u2014 ' + formatMontant(product.prix) + '</span>' +
+      '</div></div></section>';
+  }
+
+  // Serialize data onto the element for later rendering
+  const payload = {
+    slug, page: pageNum, creditKey, variant,
+    product: {
+      designation: product.designation,
+      prix: product.prix,
+      garantie: product.garantie,
+      livraison: product.livraison,
+      ean: product.ean || ''
+    },
+    calc: {
+      mensualite: calc.mensualite,
+      taeg: calc.taeg,
+      cout_credit: calc.cout_credit,
+      montant_total_du: calc.montant_total_du,
+      interets_rembourses: calc.interets_rembourses
+    },
+    duree, famille
+  };
+  const encoded = encodeURIComponent(JSON.stringify(payload));
+  return '<section class="page" data-pdf-slug="' + slug + '" data-page="' + pageNum + '" data-payload="' + encoded + '"></section>';
+}
+
+// ============================================================
+// buildValues: map roles → textual values for one page
+// ============================================================
+function buildValuesForPage(payload) {
+  const { product, calc, duree, famille, creditKey, variant, page } = payload;
+  const mens = calc.mensualite || 0;
+  const entier = Math.floor(mens);
+  const cents  = Math.round((mens - entier) * 100).toString().padStart(2, '0');
+  const mensStr = formatMensualite(mens) + '\u00A0\u20AC';
+  const totalStr = formatMontant(calc.montant_total_du);
+  const coutStr = formatMontant(calc.cout_credit);
+  const isIR = (famille === 'ir');
+  const taegStr = 'TAEG fixe ' + (calc.taeg || '0 %');
+
+  // Example boilerplate snippets (kept close to the source PDFs' printed examples)
+  const exampleByKey = {
+    '5x_sf':  'Exemple : cr\u00e9dit de 250\u00a0\u20ac sur 5 mois \u00b7 5 mensualit\u00e9s de 50,00\u00a0\u20ac',
+    '10x_ir': 'Exemple : cr\u00e9dit de 500\u00a0\u20ac sur 10 mois \u00b7 10 mensualit\u00e9s de 54,03\u00a0\u20ac',
+    '20x_ir': 'Exemple : cr\u00e9dit de 1\u00a0000\u00a0\u20ac sur 20 mois \u00b7 20 mensualit\u00e9s de 57,36\u00a0\u20ac',
+    '36x_si': 'Exemple : cr\u00e9dit de 1\u00a0000\u00a0\u20ac sur 36 mois \u00b7 36 mensualit\u00e9s de 34,23\u00a0\u20ac',
+    '48x_si': 'Exemple : cr\u00e9dit de 1\u00a0500\u00a0\u20ac sur 48 mois \u00b7 48 mensualit\u00e9s de 41,07\u00a0\u20ac',
+    '60x_si': 'Exemple : cr\u00e9dit de 1\u00a0500\u00a0\u20ac sur 60 mois \u00b7 60 mensualit\u00e9s de 34,98\u00a0\u20ac'
+  };
+
+  // 3 positions distinctes dans la PDF (labels "TAEG fixe :", "Co\u00FBt total du cr\u00E9dit :",
+  // "Montant total d\u00FB :" d\u00E9j\u00E0 imprim\u00E9s) — on n'injecte QUE les valeurs.
+  //   pos1 (31.75%, 41.10%) = valeur TAEG
+  //   pos2 (40.70%, 43.15%) = valeur co\u00FBt
+  //   pos3 (37.77%, 45.21%) = valeur montant total
+  //
+  // Page 1 : 6 r\u00F4les aux 3 positions (doublons par paires 1/2, 3/4, 5/6)
+  //   \u2192 line_1 & line_2 = pos1 ; line_3 & line_4 = pos2 ; line_5 & line_6 = pos3
+  // Pages 2/3 : 3 r\u00F4les aux 3 positions (pas de doublons)
+  //   \u2192 line_1 = pos1 ; line_2 = pos2 ; line_3 = pos3
+  const taegVal  = (calc.taeg || '0 %').toString().trim();
+  const coutVal  = famille === 'gratuit' ? 'pris en charge par le magasin' : coutStr;
+  const totalVal = totalStr;
+
+  const isPage1 = (page === 1);
+  const line1 = taegVal;                          // pos1 (toutes pages)
+  const line2 = isPage1 ? '' : coutVal;           // page1: doublon de pos1 ; p2/3: pos2
+  const line3 = isPage1 ? coutVal : totalVal;     // page1: pos2 ; p2/3: pos3
+  const line4 = '';                               // page1 only: doublon de pos2
+  const line5 = isPage1 ? totalVal : '';          // page1: pos3
+  const line6 = '';                               // page1 only: doublon de pos3
+
+  // Badge "d'int\u00E9r\u00EAts rembours\u00E9s en bon d'achat" (10x/20x IR uniquement) \u2192 montant des int\u00E9r\u00EAts rembours\u00E9s
+  // Pour les cr\u00E9dits IR, le montant r\u00E9embourse = co\u00FBt du cr\u00E9dit (= int\u00E9r\u00EAts)
+  // Le "\u20AC" est d\u00E9j\u00E0 imprim\u00E9 dans le PDF \u2192 on injecte seulement le nombre
+  const badgeTaegStr = isIR && calc.interets_rembourses != null
+    ? formatMontant(calc.interets_rembourses).replace(/\s*\u20AC\s*$/,'').trim()
+    : (calc.taeg || '').toString().replace(/\s*%\s*$/,' %').trim();
+
+  return {
+    'designation':       product.designation,
+    '_doublon_designation': product.designation,
+    'ean_code':          (product.ean || product.prix)
+                           ? [product.ean ? 'EAN\u00A0: ' + product.ean : '', product.prix ? formatMontant(product.prix) : '']
+                               .filter(Boolean).join(' _ ')
+                           : '',
+    'entier_mensu':      String(entier),
+    'centimes':          cents,
+    'mensu_line_1':      line1,
+    'mensu_line_2':      line2,
+    'mensu_line_3':      line3,
+    'mensu_line_4':      line4,
+    'mensu_line_5':      line5,
+    'mensu_line_6':      line6,
+    'badge_garantie':    product.garantie > 0 ? formatPrixService(product.garantie) : '',
+    'badge_taeg':        badgeTaegStr,
+    'service_gauche':    product.livraison > 0 ? formatPrixService(product.livraison) : '',
+    'service_droite':    product.garantie > 0 ? formatPrixService(product.garantie) : ''
+  };
+}
+
+// ============================================================
+// renderVectorPages: iterate each .page placeholder and draw
+// PDF background + overlay fields.
+// ============================================================
+async function renderVectorPages(root) {
+  if (!champsAll || !window.__pdfjs) {
+    console.warn('renderVectorPages: dependencies manquantes');
+    return;
+  }
+  const scope = root || document;
+  const sections = scope.querySelectorAll('#output .page[data-pdf-slug]');
+  const DPI_MUL = 3; // canvas over-sampling for print-quality
+
+  for (const section of sections) {
+    if (section.dataset.rendered === '1') continue;
+    const slug = section.dataset.pdfSlug;
+    const pageNum = parseInt(section.dataset.page, 10);
+    const payload = JSON.parse(decodeURIComponent(section.dataset.payload));
+    const entry = champsAll[slug];
+    if (!entry) continue;
+
+    try {
+      const pdfDoc = await getPdfDoc(slug);
+      const pdfPage = await pdfDoc.getPage(pageNum);
+      const viewport = pdfPage.getViewport({ scale: DPI_MUL });
+
+      // Canvas background
+      const canvas = document.createElement('canvas');
+      canvas.className = 'bg';
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+      section.appendChild(canvas);
+      // Render PDF sans les annotations de formulaire (pour ne pas imprimer les valeurs placeholder des champs modifiables)
+      await pdfPage.render({ canvasContext: canvas.getContext('2d'), viewport, annotationMode: 0, renderInteractiveForms: false }).promise;
+
+      // Overlay fields
+      const fields = entry.data.fields.filter(f =>
+        f.page === pageNum && !f.role.startsWith('_doublon_')
+      ).slice();
+      // Champs supplémentaires : code EAN + prix produit, placés sous la désignation
+      const designationField = entry.data.fields.find(f => f.page === pageNum && f.role === 'designation');
+      if (designationField) {
+        const eanY = designationField.y_pct + designationField.h_pct + 1.2;
+        fields.push({
+          role: 'ean_code',
+          page: pageNum,
+          x_pct: designationField.x_pct,
+          y_pct: eanY,
+          w_pct: designationField.w_pct,
+          h_pct: 2.4,
+          font_size_pt: 8,
+          color: '#555555',
+          align: 'left'
+        });
+      }
+      const values = buildValuesForPage(payload);
+      // Overrides de taille/alignement/box par r\u00F4le (valeurs JSON parfois mal plac\u00E9es pour le centrage)
+      const fontOverride = { 'badge_taeg': 14, 'badge_garantie': 11 };
+      const alignOverride = { 'badge_taeg': 'center', 'badge_garantie': 'center' };
+      // Box override : {x_pct, w_pct} \u2014 centre dans le cercle rouge
+      const boxOverride = { 'badge_taeg': { x_pct: 69, w_pct: 26 } };
+      fields.forEach(f => {
+        const val = values[f.role];
+        if (val == null || val === '') return;
+        const isMulti = (f.role === 'designation');
+        const h = isMulti ? f.h_pct * 2 : f.h_pct;
+        const align = alignOverride[f.role] || f.align;
+        const jc = { left:'flex-start', center:'center', right:'flex-end' }[align] || 'flex-start';
+        let fs = fontOverride[f.role] || f.font_size_pt;
+        // 5x_sf : "pris en charge par le magasin" a des descentes (p, g) qui débordent
+        // la boîte mensu_line (h_pct 1.58 ≈ 3.32mm) à 10pt → réduction ciblée.
+        if (val === 'pris en charge par le magasin') fs = 8.5;
+        const div = document.createElement('div');
+        div.className = isMulti ? 'field field--multi' : 'field';
+        div.dataset.role = f.role;
+        const box = boxOverride[f.role] || {};
+        const xPct = box.x_pct != null ? box.x_pct : f.x_pct;
+        const wPct = box.w_pct != null ? box.w_pct : f.w_pct;
+        div.style.cssText =
+          'left:' + xPct + '%;top:' + f.y_pct + '%;width:' + wPct + '%;height:' + h + '%;' +
+          'font-size:' + fs + 'pt;color:' + f.color + ';' +
+          'justify-content:' + jc + ';text-align:' + align + ';';
+        const span = document.createElement('span');
+        span.className = 'field-inner';
+        span.textContent = val;
+        div.appendChild(span);
+        section.appendChild(div);
+      });
+
+      section.dataset.rendered = '1';
+    } catch (ex) {
+      console.error('renderVectorPages error for', slug, pageNum, ex);
+      section.innerHTML = '<div style="padding:20px;color:#c00;">Erreur rendu ' + slug + ' p' + pageNum + ': ' + ex.message + '</div>';
+    }
+  }
+
+  // After all canvases + fields have been injected, auto-fit text.
+  fitAll(scope);
+}
+
+function fitAll(scope) {
+  (scope || document).querySelectorAll('#output .page .field').forEach(el => {
+    const inner = el.querySelector('.field-inner');
+    if (!inner) return;
+    inner.style.transform = '';
+    inner.style.fontSize = '';
+    if (el.classList.contains('field--multi')) {
+      // Remove line-clamp temporarily so scrollHeight reflects true content height
+      inner.style.webkitLineClamp = 'unset';
+      inner.style.overflow = 'visible';
+      let fs = parseFloat(getComputedStyle(el).fontSize), safety = 60;
+      while (inner.scrollHeight > el.clientHeight && fs > 5 && safety-- > 0) {
+        fs -= 0.3; inner.style.fontSize = fs + 'px';
+      }
+      inner.style.webkitLineClamp = '';
+      inner.style.overflow = '';
+      return;
+    }
+    if (inner.scrollWidth > el.clientWidth && inner.scrollWidth > 0) {
+      inner.style.transform = 'scale(' + (el.clientWidth / inner.scrollWidth) + ')';
+    }
+  });
+}
+
+// Legacy stub — no longer used. Auto-fit is handled by fitAll.
+function autoFitProductNames() { /* noop */ }
+
+
+// ============================================================
+// UTILS
+// ============================================================
+function escH(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// Double-click on EAN select to add directly
+document.getElementById('ean-select').addEventListener('dblclick', function() {
+  if (selectedEanProduct) addEanProduct();
+});
+</script>
+
+</body>
+</html>

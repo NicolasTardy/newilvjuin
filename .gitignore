@@ -1,0 +1,20 @@
+# Backups
+*.bak-*
+*.bak
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Secrets
+.env
+.env.local
+*.key
+
+# macOS metadata
+._*
