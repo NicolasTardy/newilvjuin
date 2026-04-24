@@ -541,12 +541,12 @@ async function startup() {
 
   // Essaie d'abord le JSON serveur (prod), sinon xlsx par d\u00E9faut embarqu\u00E9 (local/standalone)
   try {
-    const resp = await fetch('data/products.json');
-    if (!resp.ok) throw new Error('Pas de JSON, fallback xlsx');
+    const resp = await fetch('data/products.json', { cache: 'no-store' });
+    if (!resp.ok) throw new Error('products.json HTTP ' + resp.status);
     const data = await resp.json();
     loadProductsFromJSON(data);
     return;
-  } catch(e) { /* fallback ci-dessous */ }
+  } catch(e) { console.warn('products.json non charg\u00E9, fallback xlsx:', e.message); }
 
   try {
     document.getElementById('loading-msg').textContent = 'Chargement de la base articles embarqu\u00E9e...';
