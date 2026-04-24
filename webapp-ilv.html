@@ -605,7 +605,7 @@ function setupAdmin() {
   });
 
   // Check current base
-  fetch('data/products.json').then(r => {
+  fetch('data/products.json', { cache: 'no-store' }).then(r => {
     if (r.ok) return r.json();
     throw new Error('none');
   }).then(data => {
