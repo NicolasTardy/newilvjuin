@@ -536,14 +536,36 @@ async function startup() {
     document.getElementById('app-main').style.display = 'block';
     const sb = document.getElementById('status-bar');
     if (sb) sb.textContent = products.length + ' produits \u00B7 ' + simDonnees.length + ' lignes simulateur \u00B7 base par d\u00E9faut';
-    // Charge aussi le fichier dépliant si présent (silencieux si absent)
+    // Charge le fichier dépliant : data/depliant.json en priorité (généré par l'admin upload),
+    // sinon fallback sur data/depliant.xlsx embarqué.
     try {
-      const r2 = await fetch('data/depliant.xlsx');
+      const r2 = await fetch('data/depliant.json', { cache: 'no-store' });
       if (r2.ok) {
-        const b2 = await r2.arrayBuffer();
-        parseDepliantArticles(b2);
-      }
-    } catch(e) { /* dépliant optionnel */ }
+        const ct = (r2.headers.get('content-type') || '').toLowerCase();
+        // Le serveur renvoie parfois 200 + HTML quand le fichier n'existe pas (SPA fallback).
+        // On valide donc en parsant : si JSON valide et que c'est un array, on l'utilise.
+        const data = ct.includes('application/json') ? await r2.json() : await r2.json().catch(() => null);
+        if (Array.isArray(data) && data.length > 0) {
+          // Réhydrate les dates string → Date objects pour la logique getDepliantStatus
+          depliantProducts = data.map(p => ({
+            ...p,
+            dateDebut: p.dateDebut ? new Date(p.dateDebut) : null,
+            dateFin: p.dateFin ? new Date(p.dateFin) : null
+          }));
+        } else {
+          throw new Error('json absent ou vide');
+        }
+      } else { throw new Error('json absent'); }
+    } catch(e) {
+      // Fallback : depliant.xlsx embarqué
+      try {
+        const r3 = await fetch('data/depliant.xlsx');
+        if (r3.ok) {
+          const b3 = await r3.arrayBuffer();
+          parseDepliantArticles(b3);
+        }
+      } catch(e2) { /* dépliant optionnel */ }
+    }
     if (depliantProducts.length && document.getElementById('status-bar')) {
       document.getElementById('status-bar').textContent += ' · ' + depliantProducts.length + ' produits dépliant';
     }
