@@ -44,7 +44,6 @@ body { margin:0; font-family:'Inter',sans-serif; background:#1a1a2e; color:#ddd;
 .btn:hover { opacity:.85; }
 .btn-primary { background:#c0392b; color:#fff; }
 .btn-secondary { background:#2c3e6b; color:#ddd; }
-.btn-print { background:#27ae60; color:#fff; }
 .btn[disabled] { opacity:.4; cursor:not-allowed; }
 
 .tabs { display:flex; gap:4px; margin-bottom:16px; }
@@ -382,7 +381,6 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
     <div class="actions-bar">
       <button class="btn btn-primary" id="btn-generate" onclick="generateAllILV()">G&eacute;n&eacute;rer les ILV</button>
       <button class="btn btn-primary" id="btn-pdf" onclick="exportAllPDF()" style="display:none;background:#8e44ad;">T&eacute;l&eacute;charger PDF (zip)</button>
-      <button class="btn btn-print" id="btn-print" onclick="window.print()" style="display:none;">Imprimer</button>
     </div>
     <div class="progress-bar-wrap" id="pdf-progress-wrap">
       <div class="progress-bar-fill" id="pdf-progress-fill"></div>
@@ -1419,8 +1417,6 @@ async function generateAllILV() {
   if (output.innerHTML === '') {
     output.innerHTML = '<p style="color:#999;text-align:center;">Aucune page g\u00E9n\u00E9r\u00E9e. V\u00E9rifiez les types de cr\u00E9dit s\u00E9lectionn\u00E9s.</p>';
   }
-
-  document.getElementById('btn-print').style.display = 'inline-block';
   document.getElementById('btn-pdf').style.display = 'inline-block';
   await renderVectorPages();
   output.scrollIntoView({ behavior: 'smooth' });
