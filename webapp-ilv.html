@@ -215,9 +215,11 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
           </select>
         </div>
         <div>
-          <label>Gamme</label>
-          <select id="cascade-gamme" onchange="onCascadeGammeChange()">
-            <option value="">-- Toutes les gammes --</option>
+          <label>Promo</label>
+          <select id="cascade-promo" onchange="filterEanDropdown()">
+            <option value="">Tous les produits</option>
+            <option value="yes">🔥 Prix en promo (actuels)</option>
+            <option value="no">Sans promo</option>
           </select>
         </div>
       </div>
@@ -240,24 +242,24 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
           <span id="ean-info-ean"></span> &middot; <span id="ean-info-rayon"></span> &middot; <span id="ean-info-gamme"></span>
         </div>
         <div class="form-row">
-          <div style="padding:8px 12px;border-left:3px solid #27ae60;background:#0f0f1a;border-radius:6px;">
-            <label style="color:#27ae60;font-weight:700;">Garantie</label>
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-              <label class="cb-inline" style="font-size:13px;color:#eee;font-weight:600;"><input type="checkbox" id="ean-include-gar" checked style="transform:scale(1.3);"> Inclure</label>
-              <select id="ean-garantie-level" onchange="onGarantieLevelChange()" style="min-width:180px;">
-                <option value="3" disabled>Garantie Premium (indisponible)</option>
-                <option value="2">&#9733;&#9733;&#9733; Garantie 3 &eacute;toiles</option>
-                <option value="1">&#9733; Garantie 1 &eacute;toile</option>
-                <option value="0">Sans garantie</option>
-              </select>
-              <input type="number" id="ean-garantie-prix" step="0.01" min="0" value="0" readonly style="opacity:.7;max-width:90px;">
-            </div>
+          <div>
+            <label>Niveau de garantie</label>
+            <select id="ean-garantie-level" onchange="onGarantieLevelChange()">
+              <option value="3" disabled>Garantie Premium (indisponible)</option>
+              <option value="2">&#9733;&#9733;&#9733; Garantie 3 &eacute;toiles</option>
+              <option value="1">&#9733; Garantie 1 &eacute;toile</option>
+              <option value="0">Sans garantie</option>
+            </select>
           </div>
-          <div style="max-width:190px;margin-left:auto;padding:8px 12px;border-left:3px solid #c0392b;background:#0f0f1a;border-radius:6px;">
-            <label style="color:#c0392b;font-weight:700;">Livraison</label>
-            <div style="display:flex;align-items:center;gap:10px;">
-              <label class="cb-inline" style="font-size:13px;color:#eee;font-weight:600;"><input type="checkbox" id="ean-include-liv" style="transform:scale(1.3);"> Inclure</label>
-              <span id="ean-livraison-prix" style="font-size:13px;color:#ccc;font-weight:600;">0,00&euro;</span>
+          <div style="max-width:120px;">
+            <label>Garantie</label>
+            <input type="number" id="ean-garantie-prix" step="0.01" min="0" value="0" readonly style="opacity:.7;">
+          </div>
+          <div style="max-width:160px;">
+            <label>Livraison</label>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <label class="cb-inline"><input type="checkbox" id="ean-include-liv"> Inclure</label>
+              <span id="ean-livraison-prix" style="font-size:12px;color:#999;">0,00&euro;</span>
             </div>
           </div>
         </div>
@@ -279,24 +281,21 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
         <div><label>Rayon ILV</label><select id="m-rayon" onchange="onManualFieldChange()"><option value="">--</option></select></div>
       </div>
       <div class="form-row">
-        <div style="padding:8px 12px;border-left:3px solid #27ae60;background:#0f0f1a;border-radius:6px;">
-          <label style="color:#27ae60;font-weight:700;">Garantie</label>
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <label class="cb-inline" style="font-size:13px;color:#eee;font-weight:600;"><input type="checkbox" id="m-include-gar" checked style="transform:scale(1.3);"> Inclure</label>
-            <select id="m-garantie-level" onchange="onManualGarantieLevelChange()" style="min-width:180px;">
-              <option value="3" disabled>Garantie Premium (indisponible)</option>
-              <option value="2">&#9733;&#9733;&#9733; Garantie 3 &eacute;toiles</option>
-              <option value="1">&#9733; Garantie 1 &eacute;toile</option>
-              <option value="0">Sans garantie</option>
-            </select>
-            <input type="number" id="m-garantie" step="0.01" min="0" value="0" style="max-width:90px;">
-          </div>
+        <div>
+          <label>Niveau de garantie</label>
+          <select id="m-garantie-level" onchange="onManualGarantieLevelChange()">
+            <option value="3" disabled>Garantie Premium (indisponible)</option>
+            <option value="2">&#9733;&#9733;&#9733; Garantie 3 &eacute;toiles</option>
+            <option value="1">&#9733; Garantie 1 &eacute;toile</option>
+            <option value="0">Sans garantie</option>
+          </select>
         </div>
-        <div style="max-width:190px;margin-left:auto;padding:8px 12px;border-left:3px solid #c0392b;background:#0f0f1a;border-radius:6px;">
-          <label style="color:#c0392b;font-weight:700;">Livraison</label>
-          <div style="display:flex;align-items:center;gap:10px;">
-            <label class="cb-inline" style="font-size:13px;color:#eee;font-weight:600;"><input type="checkbox" id="m-include-liv" style="transform:scale(1.3);"> Inclure</label>
-            <span id="m-livraison-display" style="font-size:13px;color:#ccc;font-weight:600;">0,00&euro;</span>
+        <div style="max-width:120px;"><label>Garantie</label><input type="number" id="m-garantie" step="0.01" min="0" value="0"></div>
+        <div style="max-width:160px;">
+          <label>Livraison</label>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <label class="cb-inline"><input type="checkbox" id="m-include-liv"> Inclure</label>
+            <span id="m-livraison-display" style="font-size:12px;color:#999;">0,00&euro;</span>
           </div>
           <input type="hidden" id="m-livraison" value="0">
         </div>
@@ -305,8 +304,8 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
     </div>
   </div>
 
-  <!-- Batch processing (admin only) -->
-  <div class="panel" id="batch-panel" style="display:none;">
+  <!-- Batch processing -->
+  <div class="panel">
     <h2>Traitement en lot</h2>
     <p style="font-size:12px;color:#888;margin:0 0 12px;">Uploadez un fichier Excel contenant des EAN, ou traitez tous les produits charg&eacute;s d'un coup.</p>
     <div class="form-row" style="align-items:flex-end;">
@@ -339,9 +338,6 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
         </div>
         <div>
           <label class="cb-inline" style="margin-top:18px;">
-            <input type="checkbox" id="batch-include-gar" checked> Inclure garantie
-          </label>
-          <label class="cb-inline" style="margin-top:4px;">
             <input type="checkbox" id="batch-include-liv"> Inclure livraison
           </label>
         </div>
@@ -373,8 +369,9 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
         <thead>
           <tr>
             <th>Produit</th>
-            <th>Prix <span style="display:block;font-weight:400;font-size:11px;color:#c0392b;font-style:italic;">&#9888; V&eacute;rifiez que le prix est correct</span></th>
+            <th>Prix</th>
             <th>Garantie</th>
+            <th>Livraison <span style="font-weight:400;font-size:10px;color:#888;">(cocher = inclure dans mensualit&eacute;)</span></th>
             <th>Cr&eacute;dit</th>
             <th></th>
           </tr>
@@ -385,6 +382,7 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
     <div class="actions-bar">
       <button class="btn btn-primary" id="btn-generate" onclick="generateAllILV()">G&eacute;n&eacute;rer les ILV</button>
       <button class="btn btn-primary" id="btn-pdf" onclick="exportAllPDF()" style="display:none;background:#8e44ad;">T&eacute;l&eacute;charger PDF (zip)</button>
+      <button class="btn btn-print" id="btn-print" onclick="window.print()" style="display:none;">Imprimer</button>
     </div>
     <div class="progress-bar-wrap" id="pdf-progress-wrap">
       <div class="progress-bar-fill" id="pdf-progress-fill"></div>
@@ -458,11 +456,11 @@ const RAYON_TO_UNIVERS_ILV = {
 };
 
 const STRATEGIE_ILV = [
-  { min: 80, max: 400, univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "5x_sf" },
-  { min: 400, max: 900, univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "10x_ir" },
-  { min: 900, max: 1500, univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "20x_ir" },
-  { min: 1500, max: 4000, univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "36x_si" },
-  { min: 4000, max: 99999, univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "48x_si" },
+  { min: 80, max: 300, univers: ["PEM","GEM/TV","MEUBLE","LITERIE"], credit: "5x_sf" },
+  { min: 300, max: 600, univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "10x_ir" },
+  { min: 600, max: 1200, univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "20x_ir" },
+  { min: 1200, max: 2000, univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "36x_si" },
+  { min: 2000, max: 99999, univers: ["GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "60x_si" },
 ];
 
 const COEFF_MENSUELS = {
@@ -525,8 +523,10 @@ const isAdmin = new URLSearchParams(window.location.search).has('admin');
 
 async function startup() {
   if (isAdmin) {
+    document.getElementById('app-loading').style.display = 'none';
     document.getElementById('app-admin').style.display = 'block';
     setupAdmin();
+    return;
   }
 
   // Load champs_all.json + wait for pdfjs
@@ -541,12 +541,12 @@ async function startup() {
 
   // Essaie d'abord le JSON serveur (prod), sinon xlsx par d\u00E9faut embarqu\u00E9 (local/standalone)
   try {
-    const resp = await fetch('data/products.json', { cache: 'no-store' });
-    if (!resp.ok) throw new Error('products.json HTTP ' + resp.status);
+    const resp = await fetch('data/products.json');
+    if (!resp.ok) throw new Error('Pas de JSON, fallback xlsx');
     const data = await resp.json();
     loadProductsFromJSON(data);
     return;
-  } catch(e) { console.warn('products.json non charg\u00E9, fallback xlsx:', e.message); }
+  } catch(e) { /* fallback ci-dessous */ }
 
   try {
     document.getElementById('loading-msg').textContent = 'Chargement de la base articles embarqu\u00E9e...';
@@ -557,10 +557,9 @@ async function startup() {
     initEmbeddedSimulateur();
     document.getElementById('app-loading').style.display = 'none';
     document.getElementById('app-main').style.display = 'block';
-    if (isAdmin) document.getElementById('batch-panel').style.display = 'block';
     const sb = document.getElementById('status-bar');
     if (sb) sb.textContent = products.length + ' produits \u00B7 ' + simDonnees.length + ' lignes simulateur \u00B7 base par d\u00E9faut';
-    populateCascadeDomaine(); populateCascadeRayon(); populateCascadeGamme(); populateEanDropdown(products);
+    populateCascadeDomaine(); populateCascadeRayon(); populateEanDropdown(products);
     populateDomaineDropdown();
   } catch(ex) {
     document.getElementById('loading-msg').style.display = 'none';
@@ -583,11 +582,10 @@ function loadProductsFromJSON(data) {
 
   document.getElementById('app-loading').style.display = 'none';
   document.getElementById('app-main').style.display = 'block';
-  if (isAdmin) document.getElementById('batch-panel').style.display = 'block';
   document.getElementById('status-bar').textContent =
     products.length + ' produits charg\u00E9s \u00B7 ' + simDonnees.length + ' lignes simulateur';
 
-  populateCascadeDomaine(); populateCascadeRayon(); populateCascadeGamme(); populateEanDropdown(products);
+  populateCascadeDomaine(); populateCascadeRayon(); populateEanDropdown(products);
   populateDomaineDropdown();
 }
 
@@ -653,7 +651,7 @@ async function adminUpload() {
       document.getElementById('app-main').style.display = 'block';
       const sb = document.getElementById('status-bar');
       if (sb) sb.textContent = products.length + ' produits \u00B7 ' + simDonnees.length + ' lignes simulateur';
-      if (typeof populateEanDropdown === 'function') populateCascadeDomaine(); populateCascadeRayon(); populateCascadeGamme(); populateEanDropdown(products);
+      if (typeof populateEanDropdown === 'function') populateCascadeDomaine(); populateCascadeRayon(); populateEanDropdown(products);
       if (typeof populateDomaineDropdown === 'function') populateDomaineDropdown();
       return;
     }
@@ -700,33 +698,88 @@ function parseBaseArticles(data) {
   const wb = XLSX.read(data, { type: 'array' });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  if (rows.length < 2) throw new Error('Base articles: fichier trop court');
 
-  // Headers in row 2 (index 1)
-  if (rows.length < 3) throw new Error('Base articles: fichier trop court');
-  const headers = rows[1].map(h => String(h).trim());
-
-  const colIdx = (name) => {
-    const i = headers.indexOf(name);
-    return i;
-  };
+  // Auto-détection ligne d'en-têtes (row 0 nouveau format, row 1 ancien)
+  const tryHeaders = (idx) => idx < rows.length ? rows[idx].map(h => String(h).trim()) : [];
+  let headerRow = 0;
+  let headers = tryHeaders(0);
+  if (headers.indexOf('LIB_PRODUIT') < 0 && rows.length > 1) {
+    headers = tryHeaders(1);
+    headerRow = 1;
+  }
+  const dataStart = headerRow + 1;
+  const colIdx = (name) => headers.indexOf(name);
 
   const iDomaine = colIdx('LIB_DOMAINE');
   const iRayon = colIdx('LIB_RAYON');
   const iFamille = colIdx('LIB_FAMILLE');
   const iEan = colIdx('EAN_13');
   const iLib = colIdx('LIB_PRODUIT');
-  let iPrix = colIdx('PV TTC');
-  if (iPrix < 0) iPrix = colIdx('PRIX_VENTE_ENSEIGNE');
-
-  if (iLib < 0) throw new Error('Base articles: colonne LIB_PRODUIT introuvable');
-  if (iPrix < 0) throw new Error('Base articles: colonne prix introuvable');
-
   const iGamme = colIdx('LIB_GAMME');
 
+  // Colonnes prix : nouveau format = "Prix de Vente à Date du produit TTC" + "Prix Fond de Rayon TTC"
+  // Ancien format = "PV TTC" / "PRIX_VENTE_ENSEIGNE"
+  const iPrixVD  = colIdx('Prix de Vente à Date du produit TTC');
+  const iPrixFDR = colIdx('Prix Fond de Rayon TTC');
+  let iPrixLegacy = colIdx('PV TTC');
+  if (iPrixLegacy < 0) iPrixLegacy = colIdx('PV TTC ');
+  if (iPrixLegacy < 0) iPrixLegacy = colIdx('PRIX_VENTE_ENSEIGNE');
+  if (iPrixLegacy < 0) iPrixLegacy = colIdx('PRIX_VENTE_MAXI_TTC');
+
+  // Colonnes promo (nouveau format uniquement)
+  const iPrixPromo = colIdx('Prix PROMO');
+  const iDateFin   = colIdx('Date Fin');
+  const iDateDebut = colIdx('Date Début');
+
+  if (iLib < 0) throw new Error('Base articles: colonne LIB_PRODUIT introuvable');
+  if (iPrixVD < 0 && iPrixFDR < 0 && iPrixLegacy < 0)
+    throw new Error('Base articles: aucune colonne prix reconnue');
+
+  // Date du jour pour comparaison (00h00, sans heure)
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  // Convertit une cellule date Excel en Date JS (ou null)
+  const toDate = (v) => {
+    if (v == null || v === '') return null;
+    if (v instanceof Date) return v;
+    if (typeof v === 'number') {
+      // Excel serial date → ms (epoch 1899-12-30)
+      return new Date(Math.round((v - 25569) * 86400 * 1000));
+    }
+    const d = new Date(v);
+    return isNaN(d) ? null : d;
+  };
+
   products = [];
-  for (let r = 2; r < rows.length; r++) {
+  for (let r = dataStart; r < rows.length; r++) {
     const row = rows[r];
-    const prix = parseFloat(row[iPrix]);
+
+    // Sélection du prix selon la règle promo :
+    //   - si "Date Fin" est dépassée → utiliser "Prix Fond de Rayon TTC"
+    //   - sinon → utiliser "Prix de Vente à Date du produit TTC"
+    //   - fallback ancien format : iPrixLegacy
+    const prixVD  = iPrixVD  >= 0 ? parseFloat(row[iPrixVD])  : NaN;
+    const prixFDR = iPrixFDR >= 0 ? parseFloat(row[iPrixFDR]) : NaN;
+    const prixPromo = iPrixPromo >= 0 ? parseFloat(row[iPrixPromo]) : NaN;
+    const dateFin   = iDateFin   >= 0 ? toDate(row[iDateFin])   : null;
+    const dateDebut = iDateDebut >= 0 ? toDate(row[iDateDebut]) : null;
+
+    let prix;
+    let prixSource = 'inconnue';
+    const promoExpired = dateFin && dateFin < today;
+    if (!isNaN(prixVD) || !isNaN(prixFDR)) {
+      if (promoExpired && !isNaN(prixFDR)) {
+        prix = prixFDR; prixSource = 'fdr (promo expirée)';
+      } else if (!isNaN(prixVD)) {
+        prix = prixVD;  prixSource = 'prix vente date';
+      } else {
+        prix = prixFDR; prixSource = 'fdr';
+      }
+    } else if (iPrixLegacy >= 0) {
+      prix = parseFloat(row[iPrixLegacy]);
+      prixSource = 'legacy';
+    }
     if (isNaN(prix) || prix <= 0) continue;
 
     const domaineBP = iDomaine >= 0 ? String(row[iDomaine]).trim() : '';
@@ -757,7 +810,13 @@ function parseBaseArticles(data) {
 
     const universILV = rayonILV ? (RAYON_TO_UNIVERS_ILV[rayonILV] || null) : null;
 
-    products.push({ domaine, rayon: rayonBP, famille: familleBP, ean, designation, prix, rayonILV, universILV, gamme });
+    products.push({
+      domaine, rayon: rayonBP, famille: familleBP, ean, designation, prix, rayonILV, universILV, gamme,
+      // Méta promo (utile pour debug / affichage futur, pas requis pour le calcul)
+      prixFdr: !isNaN(prixFDR) ? prixFDR : null,
+      prixPromo: !isNaN(prixPromo) ? prixPromo : null,
+      dateDebut, dateFin, promoExpired, prixSource
+    });
   }
 }
 
@@ -935,13 +994,13 @@ function populateEanDropdown(filtered) {
   const sel = document.getElementById('ean-select');
   const list = filtered || products;
 
-  // Tri : LIB_DOMAINE \u2192 LIB_RAYON \u2192 d\u00E9signation (ordre alphab\u00E9tique)
+  // Tri : LIB_DOMAINE \u2192 LIB_RAYON \u2192 EAN
   const sorted = list.slice().sort((a, b) => {
     const da = (a.domaine || '').toUpperCase(), db = (b.domaine || '').toUpperCase();
     if (da !== db) return da < db ? -1 : 1;
     const ra = (a.rayon || '').toUpperCase(), rb = (b.rayon || '').toUpperCase();
     if (ra !== rb) return ra < rb ? -1 : 1;
-    return (a.designation || '').localeCompare(b.designation || '', 'fr', { sensitivity: 'base', numeric: true });
+    return (a.ean || '').localeCompare(b.ean || '', undefined, { numeric: true });
   });
   eanFilteredProducts = sorted;
 
@@ -964,7 +1023,8 @@ function populateEanDropdown(filtered) {
     }
     const opt = document.createElement('option');
     opt.value = i;
-    opt.textContent = (p.ean ? p.ean + ' \u2014 ' : '') + p.designation + ' \u2014 ' + formatMontant(p.prix);
+    const promoTag = (p.prixPromo && !p.promoExpired) ? '\ud83d\udd25 ' : '';
+    opt.textContent = promoTag + (p.ean ? p.ean + ' \u2014 ' : '') + p.designation + ' \u2014 ' + formatMontant(p.prix);
     sel.lastElementChild.appendChild(opt);
   });
 }
@@ -972,12 +1032,14 @@ function populateEanDropdown(filtered) {
 function getCascadeFiltered() {
   const dom = document.getElementById('cascade-domaine')?.value || '';
   const ray = document.getElementById('cascade-rayon')?.value || '';
-  const gam = document.getElementById('cascade-gamme')?.value || '';
+  const promo = document.getElementById('cascade-promo')?.value || '';
   const query = document.getElementById('ean-filter')?.value.trim().toUpperCase() || '';
   return products.filter(p => {
     if (dom && (p.domaine || '') !== dom) return false;
     if (ray && (p.rayon || '') !== ray) return false;
-    if (gam && (p.gamme || '') !== gam) return false;
+    // Filtre promo : "yes" = promo en cours (prixPromo set & pas expirée), "no" = pas de promo active
+    if (promo === 'yes' && !(p.prixPromo && !p.promoExpired)) return false;
+    if (promo === 'no' && (p.prixPromo && !p.promoExpired)) return false;
     if (query && !(p.ean || '').toUpperCase().includes(query) && !(p.designation || '').toUpperCase().includes(query)) return false;
     return true;
   });
@@ -986,7 +1048,16 @@ function getCascadeFiltered() {
 function populateCascadeDomaine() {
   const sel = document.getElementById('cascade-domaine');
   if (!sel) return;
-  const domaines = [...new Set(products.map(p => p.domaine || '').filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+  const domaines = [...new Set(products.map(p => p.domaine || '').filter(Boolean))].sort();
+  const promoCount = products.filter(p => p.prixPromo && !p.promoExpired).length;
+  // Ajoute aussi le compteur sur le select Promo
+  const promoSel = document.getElementById('cascade-promo');
+  if (promoSel) {
+    promoSel.innerHTML =
+      '<option value="">Tous les produits (' + products.length + ')</option>' +
+      '<option value="yes">🔥 Prix en promo — actuels (' + promoCount + ')</option>' +
+      '<option value="no">Sans promo (' + (products.length - promoCount) + ')</option>';
+  }
   sel.innerHTML = '<option value="">-- Tous les domaines (' + products.length + ') --</option>';
   domaines.forEach(d => {
     const count = products.filter(p => p.domaine === d).length;
@@ -1002,7 +1073,7 @@ function populateCascadeRayon() {
   if (!sel) return;
   const dom = document.getElementById('cascade-domaine').value;
   const source = dom ? products.filter(p => p.domaine === dom) : products;
-  const rayons = [...new Set(source.map(p => p.rayon || '').filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
+  const rayons = [...new Set(source.map(p => p.rayon || '').filter(Boolean))].sort();
   sel.innerHTML = '<option value="">-- Tous les rayons (' + source.length + ') --</option>';
   rayons.forEach(r => {
     const count = source.filter(p => p.rayon === r).length;
@@ -1013,37 +1084,12 @@ function populateCascadeRayon() {
   });
 }
 
-function populateCascadeGamme() {
-  const sel = document.getElementById('cascade-gamme');
-  if (!sel) return;
-  const dom = document.getElementById('cascade-domaine')?.value || '';
-  const ray = document.getElementById('cascade-rayon')?.value || '';
-  let source = products;
-  if (dom) source = source.filter(p => p.domaine === dom);
-  if (ray) source = source.filter(p => p.rayon === ray);
-  const gammes = [...new Set(source.map(p => p.gamme || '').filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' }));
-  sel.innerHTML = '<option value="">-- Toutes les gammes (' + source.length + ') --</option>';
-  gammes.forEach(g => {
-    const count = source.filter(p => p.gamme === g).length;
-    const opt = document.createElement('option');
-    opt.value = g;
-    opt.textContent = g + ' (' + count + ')';
-    sel.appendChild(opt);
-  });
-}
-
 function onCascadeDomaineChange() {
   populateCascadeRayon();
-  populateCascadeGamme();
   filterEanDropdown();
 }
 
 function onCascadeRayonChange() {
-  populateCascadeGamme();
-  filterEanDropdown();
-}
-
-function onCascadeGammeChange() {
   filterEanDropdown();
 }
 
@@ -1114,7 +1160,6 @@ function addEanProduct() {
   const garantie = parseFloat(document.getElementById('ean-garantie-prix').value) || 0;
   const livPrix = selectedEanWarAll ? selectedEanWarAll.livraison : 0;
   const includeLiv = document.getElementById('ean-include-liv').checked;
-  const includeGar = document.getElementById('ean-include-gar').checked;
   const defaultCredit = determineDefaultCredit(p.prix, p.universILV);
   const credits = {};
   if (defaultCredit) credits[defaultCredit] = true;
@@ -1131,7 +1176,6 @@ function addEanProduct() {
     garantie,
     livraison: livPrix,
     includeLiv,
-    includeGar,
     credits
   });
 
@@ -1229,7 +1273,6 @@ function addManualProduct() {
   const garantie = parseFloat(document.getElementById('m-garantie').value) || 0;
   const livraison = parseFloat(document.getElementById('m-livraison').value) || 0;
   const includeLiv = document.getElementById('m-include-liv').checked;
-  const includeGar = document.getElementById('m-include-gar').checked;
 
   if (!designation || prix <= 0) {
     alert('Veuillez renseigner la d\u00E9signation et le prix.');
@@ -1253,7 +1296,6 @@ function addManualProduct() {
     garantie,
     livraison,
     includeLiv,
-    includeGar,
     credits
   });
 
@@ -1264,7 +1306,6 @@ function addManualProduct() {
   document.getElementById('m-garantie').value = '0';
   document.getElementById('m-livraison').value = '0';
   document.getElementById('m-include-liv').checked = false;
-  document.getElementById('m-include-gar').checked = true;
   document.getElementById('m-livraison-display').textContent = '0,00\u20AC';
   manualWarAll = null;
 
@@ -1297,14 +1338,16 @@ function renderCart() {
         ct.label + '</label>';
     }).join('');
 
-    const garIncluded = item.includeGar !== false;
-    const garCell = garIncluded
-      ? formatPrixService(item.garantie)
-      : '<span style="text-decoration:line-through;color:#777;">' + formatPrixService(item.garantie) + '</span> <span style="font-size:10px;color:#999;">(non inclus)</span>';
+    const livChecked = item.includeLiv ? ' checked' : '';
+    const livCell = item.livraison > 0
+      ? '<label class="cb-inline"><input type="checkbox" onchange="toggleLiv(' + idx + ',this.checked)"' + livChecked + '> ' + formatPrixService(item.livraison) + '</label>'
+      : '<span style="color:#777;">-</span>';
+
     return '<tr>' +
       '<td style="max-width:200px;">' + escH(item.designation) + '<br><span style="font-size:10px;color:#777;">' + escH(item.rayonILV || '-') + ' / ' + escH(item.universILV || '-') + '</span></td>' +
       '<td><input type="number" value="' + item.prix + '" step="0.01" min="0" onchange="updateCartPrice(' + idx + ',this.value)" style="width:90px;"></td>' +
-      '<td>' + garCell + '</td>' +
+      '<td>' + formatPrixService(item.garantie) + '</td>' +
+      '<td>' + livCell + '</td>' +
       '<td>' + creditCBs + '</td>' +
       '<td><span class="cart-remove" onclick="removeCartItem(' + idx + ')">&times;</span></td>' +
       '</tr>';
@@ -1314,6 +1357,10 @@ function renderCart() {
 function toggleCredit(idx, ck, checked) {
   if (checked) cart[idx].credits[ck] = true;
   else delete cart[idx].credits[ck];
+}
+
+function toggleLiv(idx, checked) {
+  cart[idx].includeLiv = checked;
 }
 
 function updateCartPrice(idx, val) {
@@ -1356,16 +1403,11 @@ async function generateAllILV() {
       const ct = CREDIT_TYPES[creditKey];
       if (!ct) return;
 
-      const wantGar = item.includeGar !== false && item.garantie > 0;
       ct.variants.forEach(variant => {
-        if (wantGar) {
-          // User wants garantie → only generate warranty variants
-          if (variant === 'sans') return;
-          if (variant === 'gar_liv' && (!item.includeLiv || item.livraison <= 0)) return;
-        } else {
-          // No garantie (or unavailable) → only generate "sans"
-          if (variant !== 'sans') return;
-        }
+        // Skip gar_liv if livraison not included or no livraison price
+        if (variant === 'gar_liv' && (!item.includeLiv || item.livraison <= 0)) return;
+        // Skip gar if no garantie
+        if (variant === 'gar' && item.garantie <= 0) return;
 
         const html = generatePage(creditKey, variant, item);
         output.insertAdjacentHTML('beforeend', html);
@@ -1378,6 +1420,7 @@ async function generateAllILV() {
     output.innerHTML = '<p style="color:#999;text-align:center;">Aucune page g\u00E9n\u00E9r\u00E9e. V\u00E9rifiez les types de cr\u00E9dit s\u00E9lectionn\u00E9s.</p>';
   }
 
+  document.getElementById('btn-print').style.display = 'inline-block';
   document.getElementById('btn-pdf').style.display = 'inline-block';
   await renderVectorPages();
   output.scrollIntoView({ behavior: 'smooth' });
@@ -1436,7 +1479,6 @@ async function generateBatchILV() {
   const prixMin = parseFloat(document.getElementById('batch-prix-min').value) || 0;
   const garLevel = parseInt(document.getElementById('batch-garantie-level').value);
   const includeLiv = document.getElementById('batch-include-liv').checked;
-  const includeGar = document.getElementById('batch-include-gar').checked;
   const varGar = document.getElementById('batch-var-gar').checked;
   const varGarLiv = document.getElementById('batch-var-gar-liv').checked;
   const varSans = document.getElementById('batch-var-sans').checked;
@@ -1482,18 +1524,13 @@ async function generateBatchILV() {
       universILV: p.universILV || '',
       garantie,
       livraison,
-      includeLiv,
-      includeGar
+      includeLiv
     };
 
     const variants = [];
-    const wantGar = includeGar && garantie > 0;
-    if (wantGar) {
-      if (varGar) variants.push('gar');
-      if (varGarLiv && includeLiv && livraison > 0) variants.push('gar_liv');
-    } else {
-      if (varSans) variants.push('sans');
-    }
+    if (varGar && garantie > 0) variants.push('gar');
+    if (varGarLiv && includeLiv && livraison > 0 && garantie > 0) variants.push('gar_liv');
+    if (varSans) variants.push('sans');
 
     for (const variant of variants) {
       const html = generatePage(creditKey, variant, item);
@@ -1719,10 +1756,7 @@ function buildValuesForPage(payload) {
   return {
     'designation':       product.designation,
     '_doublon_designation': product.designation,
-    'ean_code':          (product.ean || product.prix)
-                           ? [product.ean ? 'EAN\u00A0: ' + product.ean : '', product.prix ? formatMontant(product.prix) : '']
-                               .filter(Boolean).join(' _ ')
-                           : '',
+    'ean_code':          product.ean ? 'EAN : ' + product.ean : '',
     'entier_mensu':      String(entier),
     'centimes':          cents,
     'mensu_line_1':      line1,
@@ -1777,15 +1811,14 @@ async function renderVectorPages(root) {
       const fields = entry.data.fields.filter(f =>
         f.page === pageNum && !f.role.startsWith('_doublon_')
       ).slice();
-      // Champs supplémentaires : code EAN + prix produit, placés sous la désignation
+      // Champ suppl\u00E9mentaire : code EAN, plac\u00E9 juste sous la case d\u00E9signation
       const designationField = entry.data.fields.find(f => f.page === pageNum && f.role === 'designation');
       if (designationField) {
-        const eanY = designationField.y_pct + designationField.h_pct + 1.2;
         fields.push({
           role: 'ean_code',
           page: pageNum,
           x_pct: designationField.x_pct,
-          y_pct: eanY,
+          y_pct: designationField.y_pct + designationField.h_pct + 1.2,
           w_pct: designationField.w_pct,
           h_pct: 2.4,
           font_size_pt: 8,
@@ -1806,10 +1839,7 @@ async function renderVectorPages(root) {
         const h = isMulti ? f.h_pct * 2 : f.h_pct;
         const align = alignOverride[f.role] || f.align;
         const jc = { left:'flex-start', center:'center', right:'flex-end' }[align] || 'flex-start';
-        let fs = fontOverride[f.role] || f.font_size_pt;
-        // 5x_sf : "pris en charge par le magasin" a des descentes (p, g) qui débordent
-        // la boîte mensu_line (h_pct 1.58 ≈ 3.32mm) à 10pt → réduction ciblée.
-        if (val === 'pris en charge par le magasin') fs = 8.5;
+        const fs = fontOverride[f.role] || f.font_size_pt;
         const div = document.createElement('div');
         div.className = isMulti ? 'field field--multi' : 'field';
         div.dataset.role = f.role;
@@ -1845,15 +1875,10 @@ function fitAll(scope) {
     inner.style.transform = '';
     inner.style.fontSize = '';
     if (el.classList.contains('field--multi')) {
-      // Remove line-clamp temporarily so scrollHeight reflects true content height
-      inner.style.webkitLineClamp = 'unset';
-      inner.style.overflow = 'visible';
-      let fs = parseFloat(getComputedStyle(el).fontSize), safety = 60;
+      let fs = parseFloat(getComputedStyle(el).fontSize), safety = 40;
       while (inner.scrollHeight > el.clientHeight && fs > 5 && safety-- > 0) {
-        fs -= 0.3; inner.style.fontSize = fs + 'px';
+        fs -= 0.5; inner.style.fontSize = fs + 'px';
       }
-      inner.style.webkitLineClamp = '';
-      inner.style.overflow = '';
       return;
     }
     if (inner.scrollWidth > el.clientWidth && inner.scrollWidth > 0) {
