@@ -159,18 +159,34 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
     <h1 style="color:#eee;margin-bottom:6px;font-size:20px;">Administration &mdash; ILV Cr&eacute;dit BUT</h1>
     <p style="color:#888;font-size:12px;margin-bottom:20px;">Uploadez une nouvelle base articles Excel. Les utilisateurs verront automatiquement les nouveaux produits.</p>
     <div class="panel">
-      <h2>Mettre &agrave; jour la base articles</h2>
+      <h2>Mettre &agrave; jour les bases articles</h2>
+      <p style="font-size:12px;color:#888;margin-bottom:14px;">
+        Le type de fichier est d&eacute;tect&eacute; automatiquement&nbsp;:<br>
+        &bull; <b>Base articles complet</b> &mdash; colonnes <code>Prix Fond de Rayon TTC</code> + <code>Prix de Vente &agrave; Date du produit TTC</code><br>
+        &bull; <b>D&eacute;pliant publicitaire</b> &mdash; colonnes <code>MEDIA</code> + <code>PV PUB</code>
+      </p>
+
+      <!-- Base articles -->
       <div class="upload-zone" id="uz-admin" onclick="document.getElementById('file-admin').click()">
         <input type="file" id="file-admin" accept=".xlsx,.xls">
-        <div class="uz-label">Base articles / Prix fond de gamme (.xlsx)</div>
+        <div class="uz-label">📦 Base articles complet (.xlsx)</div>
         <div class="uz-name" id="uz-admin-name">Aucun fichier</div>
       </div>
-      <div style="margin-top:10px;">
+
+      <!-- Depliant -->
+      <div class="upload-zone" id="uz-depliant" style="margin-top:10px;" onclick="document.getElementById('file-depliant').click()">
+        <input type="file" id="file-depliant" accept=".xlsx,.xls">
+        <div class="uz-label">🗞 Fichier d&eacute;pliant publicitaire (.xlsx)</div>
+        <div class="uz-name" id="uz-depliant-name">Aucun fichier</div>
+      </div>
+
+      <div style="margin-top:14px;">
         <label style="color:#999;">Mot de passe admin</label>
         <input type="password" id="admin-password" placeholder="Mot de passe...">
       </div>
-      <div style="text-align:center;margin-top:16px;">
-        <button class="btn btn-primary" id="btn-admin-upload" disabled onclick="adminUpload()">Envoyer la base</button>
+      <div style="text-align:center;margin-top:16px;display:flex;gap:10px;justify-content:center;">
+        <button class="btn btn-primary" id="btn-admin-upload" disabled onclick="adminUpload()">Envoyer la base articles</button>
+        <button class="btn btn-primary" id="btn-depliant-upload" disabled onclick="adminUploadDepliant()" style="background:#e67e22;">Envoyer le d&eacute;pliant</button>
       </div>
       <div id="admin-status" style="font-size:13px;margin-top:10px;text-align:center;display:none;"></div>
     </div>
@@ -319,66 +335,6 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
       </div>
       <div style="margin-top:8px;"><button class="btn btn-secondary" onclick="addManualProduct()">Ajouter au panier</button></div>
     </div>
-  </div>
-
-  <!-- Batch processing -->
-  <div class="panel">
-    <h2>Traitement en lot</h2>
-    <p style="font-size:12px;color:#888;margin:0 0 12px;">Uploadez un fichier Excel contenant des EAN, ou traitez tous les produits charg&eacute;s d'un coup.</p>
-    <div class="form-row" style="align-items:flex-end;">
-      <div style="flex:2;">
-        <label>Fichier liste EAN (optionnel, col A = EAN)</label>
-        <input type="file" id="file-batch" accept=".xlsx,.xls,.csv,.txt" style="font-size:12px;">
-      </div>
-      <div>
-        <button class="btn btn-secondary" onclick="loadBatchFile()" id="btn-batch-load">Charger la liste</button>
-      </div>
-      <div>
-        <button class="btn btn-secondary" onclick="useBatchAll()">Utiliser tous les produits charg&eacute;s</button>
-      </div>
-    </div>
-    <div id="batch-list-info" style="display:none;">
-      <div class="batch-stats" id="batch-stats"></div>
-      <div class="batch-config">
-        <div>
-          <label>Prix minimum (&euro;)</label>
-          <input type="number" id="batch-prix-min" value="80" step="1" min="0">
-        </div>
-        <div>
-          <label>Niveau de garantie</label>
-          <select id="batch-garantie-level">
-            <option value="3" disabled>Garantie Premium (indisponible)</option>
-            <option value="2">&#9733;&#9733;&#9733; 3 &eacute;toiles</option>
-            <option value="1">&#9733; 1 &eacute;toile</option>
-            <option value="0">Sans garantie</option>
-          </select>
-        </div>
-        <div>
-          <label class="cb-inline" style="margin-top:18px;">
-            <input type="checkbox" id="batch-include-liv"> Inclure livraison
-          </label>
-        </div>
-        <div>
-          <label>Variante g&eacute;n&eacute;r&eacute;e</label>
-          <div style="font-size:11px;color:#888;line-height:1.4;padding:6px 0;">
-            D&eacute;termin&eacute;e automatiquement&nbsp;:<br>
-            &bull; Garantie + livraison incluses &rarr; <b>gar_liv</b><br>
-            &bull; Garantie seule &rarr; <b>gar</b><br>
-            &bull; Aucun service &rarr; <b>sans</b>
-          </div>
-          <input type="hidden" id="batch-var-gar" checked>
-          <input type="hidden" id="batch-var-gar-liv">
-          <input type="hidden" id="batch-var-sans" checked>
-        </div>
-      </div>
-      <div class="actions-bar">
-        <button class="btn btn-primary" onclick="generateBatchILV()">G&eacute;n&eacute;rer toutes les ILV en lot</button>
-      </div>
-    </div>
-    <div class="progress-bar-wrap" id="batch-progress-wrap">
-      <div class="progress-bar-fill" id="batch-progress-fill"></div>
-    </div>
-    <div class="progress-text" id="batch-progress-text"></div>
   </div>
 
   <!-- Cart -->
@@ -635,6 +591,15 @@ function setupAdmin() {
     document.getElementById('btn-admin-upload').disabled = !f;
   });
 
+  document.getElementById('file-depliant').addEventListener('change', function(e) {
+    const f = e.target.files[0];
+    if (f) {
+      document.getElementById('uz-depliant-name').textContent = f.name;
+      document.getElementById('uz-depliant').classList.add('has-file');
+    }
+    document.getElementById('btn-depliant-upload').disabled = !f;
+  });
+
   // Check current base
   fetch('data/products.json').then(r => {
     if (r.ok) return r.json();
@@ -732,6 +697,68 @@ async function adminUpload() {
   } catch(ex) {
     statusEl.style.color = '#e74c3c';
     statusEl.textContent = 'Erreur: ' + ex.message;
+  }
+}
+
+// Upload spécifique pour le fichier dépliant (slot dédié)
+async function adminUploadDepliant() {
+  const statusEl = document.getElementById('admin-status');
+  const password = document.getElementById('admin-password').value;
+  const file = document.getElementById('file-depliant').files[0];
+  if (!file) return;
+
+  statusEl.style.display = 'block';
+  statusEl.style.color = '#999';
+  statusEl.textContent = 'Analyse du fichier dépliant...';
+
+  try {
+    const data = await readFileAsArrayBuffer(file);
+    parseDepliantArticles(data);
+
+    const isLocal = ['localhost','127.0.0.1',''].includes(location.hostname);
+
+    if (isLocal) {
+      // Charge champs_all.json + pdf.js si pas déjà fait
+      if (!champsAll) {
+        try { champsAll = await fetch('champs_all.json').then(r => r.json()); }
+        catch(e) {}
+      }
+      let tries=0; while (!window.__pdfjs && tries<100) { await new Promise(r=>setTimeout(r,50)); tries++; }
+      if (typeof initEmbeddedSimulateur === 'function' && !simDonnees.length) initEmbeddedSimulateur();
+
+      statusEl.style.color = '#27ae60';
+      statusEl.textContent = depliantProducts.length + ' produits dépliant chargés (mode local).';
+      // Si la base est déjà chargée, bascule sur l'app principale ; sinon laisse en admin pour upload de la base
+      if (products.length) {
+        document.getElementById('app-admin').style.display = 'none';
+        document.getElementById('app-main').style.display = 'block';
+        const sb = document.getElementById('status-bar');
+        if (sb) sb.textContent = products.length + ' produits · ' + simDonnees.length + ' lignes simulateur · ' + depliantProducts.length + ' produits dépliant';
+        populateCascadeDepliant();
+        populateCascadeDomaine();
+        populateCascadeRayon();
+        populateEanDropdown(products);
+      }
+      document.getElementById('admin-current-info').textContent =
+        products.length + ' produits base · ' + depliantProducts.length + ' produits dépliant.';
+      return;
+    }
+
+    statusEl.textContent = depliantProducts.length + ' produits dépliant extraits. Envoi au serveur...';
+    const resp = await fetch('api/upload-depliant', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
+      body: JSON.stringify(depliantProducts)
+    });
+    if (!resp.ok) {
+      const msg = await resp.text();
+      throw new Error(msg || 'Erreur serveur');
+    }
+    statusEl.style.color = '#27ae60';
+    statusEl.textContent = depliantProducts.length + ' produits dépliant enregistrés !';
+  } catch(ex) {
+    statusEl.style.color = '#e74c3c';
+    statusEl.textContent = 'Erreur dépliant : ' + ex.message;
   }
 }
 
