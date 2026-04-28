@@ -247,29 +247,40 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
         <div style="font-size:11px;color:#888;margin-bottom:8px;">
           <span id="ean-info-ean"></span> &middot; <span id="ean-info-rayon"></span> &middot; <span id="ean-info-gamme"></span>
         </div>
-        <div class="form-row">
-          <div>
-            <label>Niveau de garantie</label>
-            <select id="ean-garantie-level" onchange="onGarantieLevelChange()">
-              <option value="3" disabled>Garantie Premium (indisponible)</option>
-              <option value="2">&#9733;&#9733;&#9733; Garantie 3 &eacute;toiles</option>
-              <option value="1">&#9733; Garantie 1 &eacute;toile</option>
-              <option value="0">Sans garantie</option>
-            </select>
-          </div>
-          <div style="max-width:120px;">
-            <label>Garantie</label>
-            <input type="number" id="ean-garantie-prix" step="0.01" min="0" value="0" readonly style="opacity:.7;">
-          </div>
-          <div style="max-width:160px;">
-            <label>Livraison</label>
-            <div style="display:flex;align-items:center;gap:8px;">
-              <label class="cb-inline"><input type="checkbox" id="ean-include-liv"> Inclure</label>
-              <span id="ean-livraison-prix" style="font-size:12px;color:#999;">0,00&euro;</span>
+        <div style="background:#0f1626;border:1px solid #2c3e50;border-radius:6px;padding:12px;margin-top:8px;">
+          <div style="font-size:11px;color:#7e8a9a;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;font-weight:700;">Services à inclure dans l'ILV</div>
+
+          <!-- GARANTIE -->
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#1a2740;border-radius:5px;margin-bottom:8px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:700;color:#eee;margin:0;">
+              <input type="checkbox" id="ean-include-gar" checked onchange="onIncludeGarantieChange()" style="width:18px;height:18px;cursor:pointer;">
+              Garantie
+            </label>
+            <div id="ean-garantie-options" style="flex:1;display:flex;align-items:center;gap:10px;">
+              <select id="ean-garantie-level" onchange="onGarantieLevelChange()" style="flex:1;">
+                <option value="3" disabled>Garantie Premium (indisponible)</option>
+                <option value="2">&#9733;&#9733;&#9733; Garantie 3 &eacute;toiles</option>
+                <option value="1">&#9733; Garantie 1 &eacute;toile</option>
+              </select>
+              <span style="font-size:13px;color:#a8e6c1;font-weight:700;white-space:nowrap;">
+                <span id="ean-garantie-prix-display">0,00&euro;</span>
+              </span>
+              <input type="number" id="ean-garantie-prix" step="0.01" min="0" value="0" readonly style="display:none;">
             </div>
           </div>
+
+          <!-- LIVRAISON -->
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#1a2740;border-radius:5px;">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:700;color:#eee;margin:0;flex:1;">
+              <input type="checkbox" id="ean-include-liv" onchange="onIncludeLivraisonChange()" style="width:18px;height:18px;cursor:pointer;">
+              Livraison
+            </label>
+            <span style="font-size:13px;color:#a8e6c1;font-weight:700;white-space:nowrap;">
+              <span id="ean-livraison-prix">0,00&euro;</span>
+            </span>
+          </div>
         </div>
-        <div style="margin-top:8px;"><button class="btn btn-secondary" onclick="addEanProduct()">Ajouter au panier</button></div>
+        <div style="margin-top:10px;"><button class="btn btn-secondary" onclick="addEanProduct()">Ajouter au panier</button></div>
       </div>
     </div>
 
@@ -1409,8 +1420,12 @@ function onEanSelect() {
 
   // Update displayed prices
   document.getElementById('ean-garantie-prix').value = pickGarantie(selectedEanWarAll, defaultLevel);
+  document.getElementById('ean-garantie-prix-display').textContent = formatPrixService(pickGarantie(selectedEanWarAll, defaultLevel));
   document.getElementById('ean-livraison-prix').textContent = formatPrixService(selectedEanWarAll.livraison);
+  // Reset checkboxes : garantie cochée par défaut si dispo, livraison décochée
+  document.getElementById('ean-include-gar').checked = (defaultLevel > 0 && pickGarantie(selectedEanWarAll, defaultLevel) > 0);
   document.getElementById('ean-include-liv').checked = false;
+  refreshGarantieUI();
 
   // Enable/disable unavailable levels (Premium niv.3 reste toujours indisponible)
   levelSel.querySelectorAll('option').forEach(opt => {
@@ -1429,7 +1444,31 @@ function onEanSelect() {
 function onGarantieLevelChange() {
   if (!selectedEanWarAll) return;
   const level = parseInt(document.getElementById('ean-garantie-level').value);
-  document.getElementById('ean-garantie-prix').value = pickGarantie(selectedEanWarAll, level);
+  const prix = pickGarantie(selectedEanWarAll, level);
+  document.getElementById('ean-garantie-prix').value = prix;
+  document.getElementById('ean-garantie-prix-display').textContent = formatPrixService(prix);
+}
+
+function onIncludeGarantieChange() {
+  refreshGarantieUI();
+}
+
+function onIncludeLivraisonChange() {
+  // Visuel uniquement, le calcul utilise la valeur du checkbox au moment de l'ajout
+}
+
+// Active/désactive le bloc options garantie selon le checkbox "inclure"
+function refreshGarantieUI() {
+  const cb = document.getElementById('ean-include-gar');
+  const opts = document.getElementById('ean-garantie-options');
+  if (!cb || !opts) return;
+  if (cb.checked) {
+    opts.style.opacity = '1';
+    opts.style.pointerEvents = 'auto';
+  } else {
+    opts.style.opacity = '.4';
+    opts.style.pointerEvents = 'none';
+  }
 }
 
 function addEanProduct() {
@@ -1438,7 +1477,9 @@ function addEanProduct() {
   if (block) { alert(block); return; }
 
   const p = selectedEanProduct;
-  const garantie = parseFloat(document.getElementById('ean-garantie-prix').value) || 0;
+  // Si la garantie n'est pas cochée → garantie = 0 (variante "sans" sera utilisée)
+  const includeGar = document.getElementById('ean-include-gar').checked;
+  const garantie = includeGar ? (parseFloat(document.getElementById('ean-garantie-prix').value) || 0) : 0;
   const livPrix = selectedEanWarAll ? selectedEanWarAll.livraison : 0;
   const includeLiv = document.getElementById('ean-include-liv').checked;
   const defaultCredit = determineDefaultCredit(p.prix, p.universILV);
