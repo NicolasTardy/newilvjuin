@@ -202,6 +202,12 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
     <div class="tab-content active" id="tab-dropdown">
       <div class="form-row" style="margin-bottom:10px;">
         <div>
+          <label>Source</label>
+          <select id="cascade-depliant" onchange="onCascadeDepliantChange()">
+            <option value="">Base de données complète</option>
+          </select>
+        </div>
+        <div>
           <label>Domaine</label>
           <select id="cascade-domaine" onchange="onCascadeDomaineChange()">
             <option value="">-- Tous les domaines --</option>
@@ -213,7 +219,7 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
             <option value="">-- Tous les rayons --</option>
           </select>
         </div>
-        <div>
+        <div id="cascade-promo-wrap">
           <label>Promo</label>
           <select id="cascade-promo" onchange="filterEanDropdown()">
             <option value="">Tous les produits</option>
@@ -507,7 +513,8 @@ const pdfCache = {};
 // ============================================================
 // GLOBAL STATE
 // ============================================================
-let products = [];          // loaded from base articles
+let products = [];          // loaded from base articles (source : base.xlsx)
+let depliantProducts = [];  // produits du fichier dépliant (source : depliant.xlsx)
 let simDonnees = [];        // simulateur Donnees rows
 let simListes = {};         // univers -> families
 let cart = [];              // {id, designation, prix, domaine, rayon, rayonILV, universILV, garantie, livraison, credits:{}}
@@ -557,6 +564,18 @@ async function startup() {
     document.getElementById('app-main').style.display = 'block';
     const sb = document.getElementById('status-bar');
     if (sb) sb.textContent = products.length + ' produits \u00B7 ' + simDonnees.length + ' lignes simulateur \u00B7 base par d\u00E9faut';
+    // Charge aussi le fichier dépliant si présent (silencieux si absent)
+    try {
+      const r2 = await fetch('data/depliant.xlsx');
+      if (r2.ok) {
+        const b2 = await r2.arrayBuffer();
+        parseDepliantArticles(b2);
+      }
+    } catch(e) { /* dépliant optionnel */ }
+    if (depliantProducts.length && document.getElementById('status-bar')) {
+      document.getElementById('status-bar').textContent += ' · ' + depliantProducts.length + ' produits dépliant';
+    }
+    populateCascadeDepliant();
     populateCascadeDomaine(); populateCascadeRayon(); populateEanDropdown(products);
     populateDomaineDropdown();
   } catch(ex) {
@@ -601,7 +620,7 @@ function setupAdmin() {
   });
 
   // Check current base
-  fetch('data/products.json', { cache: 'no-store' }).then(r => {
+  fetch('data/products.json').then(r => {
     if (r.ok) return r.json();
     throw new Error('none');
   }).then(data => {
@@ -624,7 +643,21 @@ async function adminUpload() {
 
   try {
     const data = await readFileAsArrayBuffer(file);
-    parseBaseArticles(data);
+
+    // Auto-detection du type de fichier (base vs depliant) selon les colonnes presentes
+    const wb_sniff = XLSX.read(data, { type: 'array' });
+    const ws_sniff = wb_sniff.Sheets[wb_sniff.SheetNames[0]];
+    const sniff_rows = XLSX.utils.sheet_to_json(ws_sniff, { header: 1, defval: '' }).slice(0, 3);
+    const allHeaders = sniff_rows.flat().map(v => String(v).trim());
+    const isDepliantFile = allHeaders.includes('MEDIA') && allHeaders.includes('PV PUB');
+
+    if (isDepliantFile) {
+      parseDepliantArticles(data);
+      statusEl.textContent = depliantProducts.length + ' produits depliant detectes.';
+    } else {
+      parseBaseArticles(data);
+      statusEl.textContent = products.length + ' produits base detectes.';
+    }
 
     // Mode local (http.server Python, pas de backend) : on skip l'upload et on utilise la base en m\u00E9moire.
     const isLocal = ['localhost','127.0.0.1',''].includes(location.hostname);
@@ -641,25 +674,34 @@ async function adminUpload() {
       if (typeof initEmbeddedSimulateur === 'function') initEmbeddedSimulateur();
 
       statusEl.style.color = '#27ae60';
-      statusEl.textContent = products.length + ' produits charg\u00E9s (mode local, session courante).';
+      const totalLoaded = products.length + ' produits base + ' + depliantProducts.length + ' depliant';
+      statusEl.textContent = totalLoaded + ' (mode local, session courante).';
       document.getElementById('admin-current-info').textContent =
-        products.length + ' produits charg\u00E9s \u00B7 ' + simDonnees.length + ' lignes simulateur.';
+        totalLoaded + ' \u00B7 ' + simDonnees.length + ' lignes simulateur.';
       // Bascule vers l'app principale
       document.getElementById('app-admin').style.display = 'none';
       document.getElementById('app-main').style.display = 'block';
       const sb = document.getElementById('status-bar');
-      if (sb) sb.textContent = products.length + ' produits \u00B7 ' + simDonnees.length + ' lignes simulateur';
-      if (typeof populateEanDropdown === 'function') populateCascadeDomaine(); populateCascadeRayon(); populateEanDropdown(products);
+      if (sb) sb.textContent = products.length + ' produits \u00B7 ' + simDonnees.length + ' lignes simulateur' + (depliantProducts.length ? ' \u00B7 ' + depliantProducts.length + ' produits d\u00E9pliant' : '');
+      populateCascadeDepliant();
+      populateCascadeDomaine();
+      populateCascadeRayon();
+      populateEanDropdown(products);
       if (typeof populateDomaineDropdown === 'function') populateDomaineDropdown();
       return;
     }
 
-    statusEl.textContent = products.length + ' produits extraits. Envoi au serveur...';
+    // Production : endpoint distinct pour la base et pour le depliant
+    const endpoint = isDepliantFile ? 'api/upload-depliant' : 'api/upload-products';
+    const payload = isDepliantFile ? depliantProducts : products;
+    const labelKind = isDepliantFile ? 'd\u00E9pliant' : 'base';
 
-    const resp = await fetch('api/upload-products', {
+    statusEl.textContent = payload.length + ' produits ' + labelKind + ' extraits. Envoi au serveur...';
+
+    const resp = await fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
-      body: JSON.stringify(products)
+      body: JSON.stringify(payload)
     });
 
     if (!resp.ok) {
@@ -668,9 +710,9 @@ async function adminUpload() {
     }
 
     statusEl.style.color = '#27ae60';
-    statusEl.textContent = products.length + ' produits enregistr\u00E9s avec succ\u00E8s !';
+    statusEl.textContent = payload.length + ' produits ' + labelKind + ' enregistr\u00E9s avec succ\u00E8s !';
     document.getElementById('admin-current-info').textContent =
-      products.length + ' produits dans la base actuelle.';
+      payload.length + ' produits ' + labelKind + ' dans la base actuelle.';
   } catch(ex) {
     statusEl.style.color = '#e74c3c';
     statusEl.textContent = 'Erreur: ' + ex.message;
@@ -814,6 +856,108 @@ function parseBaseArticles(data) {
       prixFdr: !isNaN(prixFDR) ? prixFDR : null,
       prixPromo: !isNaN(prixPromo) ? prixPromo : null,
       dateDebut, dateFin, promoExpired, prixSource
+    });
+  }
+}
+
+// ============================================================
+// PARSE DEPLIANT XLSX — fichier publicitaire BUT
+// Colonnes : DOMAINE, RAYON, FAMILLE, EAN_13, LIB PDTS, GAMME, MEDIA, DEBUT, FIN, PV FDR, PV PUB
+// En-têtes en row 2 (row 1 vide), data à partir de row 3
+// Logique prix : si aujourd'hui ∈ [DEBUT, FIN] → PV PUB, sinon → PV FDR
+// ============================================================
+function parseDepliantArticles(data) {
+  const wb = XLSX.read(data, { type: 'array' });
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  if (rows.length < 3) { depliantProducts = []; return; }
+
+  // Auto-détection ligne d'en-têtes (row 0 ou row 1)
+  const tryHeaders = (idx) => idx < rows.length ? rows[idx].map(h => String(h).trim()) : [];
+  let headerRow = 0;
+  let headers = tryHeaders(0);
+  if (headers.indexOf('LIB PDTS') < 0 && rows.length > 1) {
+    headers = tryHeaders(1);
+    headerRow = 1;
+  }
+  const dataStart = headerRow + 1;
+  const colIdx = (name) => headers.indexOf(name);
+
+  const iDomaine = colIdx('DOMAINE');
+  const iRayon = colIdx('RAYON');
+  const iFamille = colIdx('FAMILLE');
+  const iEan = colIdx('EAN_13');
+  const iLib = colIdx('LIB PDTS');
+  const iGamme = colIdx('GAMME');
+  const iMedia = colIdx('MEDIA');
+  const iDebut = colIdx('DEBUT');
+  const iFin = colIdx('FIN');
+  const iPVFdr = colIdx('PV FDR');
+  const iPVPub = colIdx('PV PUB');
+
+  if (iLib < 0 || iMedia < 0 || iPVPub < 0) {
+    console.warn('parseDepliantArticles: colonnes manquantes (LIB PDTS / MEDIA / PV PUB)');
+    depliantProducts = [];
+    return;
+  }
+
+  const today = new Date(); today.setHours(0,0,0,0);
+  const toDate = (v) => {
+    if (v == null || v === '') return null;
+    if (v instanceof Date) return v;
+    if (typeof v === 'number') return new Date(Math.round((v - 25569) * 86400 * 1000));
+    const d = new Date(v); return isNaN(d) ? null : d;
+  };
+
+  depliantProducts = [];
+  for (let r = dataStart; r < rows.length; r++) {
+    const row = rows[r];
+    const designation = String(row[iLib] || '').trim();
+    if (!designation) continue;
+
+    const pvPub = parseFloat(row[iPVPub]);
+    const pvFdr = iPVFdr >= 0 ? parseFloat(row[iPVFdr]) : NaN;
+    const dateDebut = iDebut >= 0 ? toDate(row[iDebut]) : null;
+    const dateFin = iFin >= 0 ? toDate(row[iFin]) : null;
+
+    // Sélection du prix : PV PUB si on est dans la fenêtre, sinon PV FDR
+    const inWindow = dateDebut && dateFin && dateDebut <= today && today <= dateFin;
+    let prix;
+    if (inWindow && !isNaN(pvPub) && pvPub > 0) prix = pvPub;
+    else if (!isNaN(pvFdr) && pvFdr > 0) prix = pvFdr;
+    else if (!isNaN(pvPub) && pvPub > 0) prix = pvPub; // fallback ultime
+    else continue;
+
+    const domaineBP = String(row[iDomaine] || '').trim();
+    const rayonBP = String(row[iRayon] || '').trim();
+    const familleBP = String(row[iFamille] || '').trim();
+    const ean = String(row[iEan] || '').trim();
+    const gamme = iGamme >= 0 ? String(row[iGamme] || '').trim() : '';
+    const media = row[iMedia];
+
+    // Map domaine + rayon ILV (réutilise les mêmes mappings que la base)
+    const domInfo = BP_DOMAINE_MAP[domaineBP];
+    if (domInfo === null) continue;
+    const domaine = domInfo ? domInfo.domaine : domaineBP;
+
+    let rayonILV = null;
+    const fKey = domaineBP + '|' + rayonBP + '|' + familleBP;
+    if (BP_FAMILLE_MAP[fKey]) rayonILV = BP_FAMILLE_MAP[fKey];
+    else {
+      const rKey = domaineBP + '|' + rayonBP;
+      if (BP_RAYON_MAP[rKey] !== undefined) rayonILV = BP_RAYON_MAP[rKey];
+    }
+    if (rayonILV === null) continue;
+
+    const universILV = rayonILV ? (RAYON_TO_UNIVERS_ILV[rayonILV] || null) : null;
+
+    depliantProducts.push({
+      domaine, rayon: rayonBP, famille: familleBP, ean, designation, prix,
+      rayonILV, universILV, gamme,
+      media, pvFdr: !isNaN(pvFdr) ? pvFdr : null, pvPub: !isNaN(pvPub) ? pvPub : null,
+      dateDebut, dateFin,
+      depliantActive: !!inWindow,
+      sourceType: 'depliant'
     });
   }
 }
@@ -1027,38 +1171,81 @@ function populateEanDropdown(filtered) {
   });
 }
 
+// Source active pour les cascades : products (base) ou depliantProducts filtrés sur un MEDIA
+function getActiveSource() {
+  const dep = document.getElementById('cascade-depliant')?.value || '';
+  if (!dep) return products;
+  // dep = numéro MEDIA → on filtre depliantProducts
+  return depliantProducts.filter(p => String(p.media) === dep);
+}
+
 function getCascadeFiltered() {
   const dom = document.getElementById('cascade-domaine')?.value || '';
   const ray = document.getElementById('cascade-rayon')?.value || '';
   const promo = document.getElementById('cascade-promo')?.value || '';
   const query = document.getElementById('ean-filter')?.value.trim().toUpperCase() || '';
-  return products.filter(p => {
+  const isDepliant = !!document.getElementById('cascade-depliant')?.value;
+  return getActiveSource().filter(p => {
     if (dom && (p.domaine || '') !== dom) return false;
     if (ray && (p.rayon || '') !== ray) return false;
-    // Filtre promo : "yes" = promo en cours (prixPromo set & pas expirée), "no" = pas de promo active
-    if (promo === 'yes' && !(p.prixPromo && !p.promoExpired)) return false;
-    if (promo === 'no' && (p.prixPromo && !p.promoExpired)) return false;
+    // Filtre promo : ne s'applique qu'à la base (pas de promo dans le contexte dépliant)
+    if (!isDepliant) {
+      if (promo === 'yes' && !(p.prixPromo && !p.promoExpired)) return false;
+      if (promo === 'no' && (p.prixPromo && !p.promoExpired)) return false;
+    }
     if (query && !(p.ean || '').toUpperCase().includes(query) && !(p.designation || '').toUpperCase().includes(query)) return false;
     return true;
   });
 }
 
+function populateCascadeDepliant() {
+  const sel = document.getElementById('cascade-depliant');
+  if (!sel) return;
+  // Liste les MEDIA distincts
+  const mediasMap = new Map(); // media -> {count, debut, fin}
+  depliantProducts.forEach(p => {
+    const m = p.media;
+    if (m == null) return;
+    if (!mediasMap.has(m)) {
+      mediasMap.set(m, { count: 0, debut: p.dateDebut, fin: p.dateFin });
+    }
+    mediasMap.get(m).count++;
+  });
+  const fmtDate = (d) => {
+    if (!d) return '?';
+    const dt = (d instanceof Date) ? d : new Date(d);
+    if (isNaN(dt)) return '?';
+    return String(dt.getDate()).padStart(2,'0') + '/' + String(dt.getMonth()+1).padStart(2,'0');
+  };
+  let html = '<option value="">Base de données complète (' + products.length + ')</option>';
+  [...mediasMap.entries()].sort((a,b)=>String(a[0]).localeCompare(String(b[0]))).forEach(([m, info]) => {
+    html += '<option value="' + m + '">🗞 Dépliant n°' + m + ' — ' + info.count + ' produits (' + fmtDate(info.debut) + ' → ' + fmtDate(info.fin) + ')</option>';
+  });
+  sel.innerHTML = html;
+}
+
 function populateCascadeDomaine() {
   const sel = document.getElementById('cascade-domaine');
   if (!sel) return;
-  const domaines = [...new Set(products.map(p => p.domaine || '').filter(Boolean))].sort();
-  const promoCount = products.filter(p => p.prixPromo && !p.promoExpired).length;
-  // Ajoute aussi le compteur sur le select Promo
+  const source = getActiveSource();
+  const domaines = [...new Set(source.map(p => p.domaine || '').filter(Boolean))].sort();
+  const isDepliant = !!document.getElementById('cascade-depliant')?.value;
+
+  // Adapte le compteur du select Promo (uniquement pour la base, masqué en mode dépliant)
   const promoSel = document.getElementById('cascade-promo');
-  if (promoSel) {
+  const promoWrap = document.getElementById('cascade-promo-wrap');
+  if (promoWrap) promoWrap.style.display = isDepliant ? 'none' : '';
+  if (promoSel && !isDepliant) {
+    const promoCount = products.filter(p => p.prixPromo && !p.promoExpired).length;
     promoSel.innerHTML =
       '<option value="">Tous les produits (' + products.length + ')</option>' +
       '<option value="yes">🔥 Prix en promo — actuels (' + promoCount + ')</option>' +
       '<option value="no">Sans promo (' + (products.length - promoCount) + ')</option>';
   }
-  sel.innerHTML = '<option value="">-- Tous les domaines (' + products.length + ') --</option>';
+
+  sel.innerHTML = '<option value="">-- Tous les domaines (' + source.length + ') --</option>';
   domaines.forEach(d => {
-    const count = products.filter(p => p.domaine === d).length;
+    const count = source.filter(p => p.domaine === d).length;
     const opt = document.createElement('option');
     opt.value = d;
     opt.textContent = d + ' (' + count + ')';
@@ -1070,7 +1257,8 @@ function populateCascadeRayon() {
   const sel = document.getElementById('cascade-rayon');
   if (!sel) return;
   const dom = document.getElementById('cascade-domaine').value;
-  const source = dom ? products.filter(p => p.domaine === dom) : products;
+  const base = getActiveSource();
+  const source = dom ? base.filter(p => p.domaine === dom) : base;
   const rayons = [...new Set(source.map(p => p.rayon || '').filter(Boolean))].sort();
   sel.innerHTML = '<option value="">-- Tous les rayons (' + source.length + ') --</option>';
   rayons.forEach(r => {
@@ -1080,6 +1268,16 @@ function populateCascadeRayon() {
     opt.textContent = r + ' (' + count + ')';
     sel.appendChild(opt);
   });
+}
+
+function onCascadeDepliantChange() {
+  // Reset domaine/rayon car la source change
+  document.getElementById('cascade-domaine').value = '';
+  document.getElementById('cascade-rayon').value = '';
+  document.getElementById('cascade-promo').value = '';
+  populateCascadeDomaine();
+  populateCascadeRayon();
+  filterEanDropdown();
 }
 
 function onCascadeDomaineChange() {
