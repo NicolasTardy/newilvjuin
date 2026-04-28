@@ -200,6 +200,7 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
 
     <!-- Dropdown EAN tab -->
     <div class="tab-content active" id="tab-dropdown">
+      <div id="depliant-banner" style="display:none;border-radius:6px;padding:10px 14px;margin-bottom:10px;font-size:13px;font-weight:600;"></div>
       <div class="form-row" style="margin-bottom:10px;">
         <div>
           <label>Source</label>
@@ -1198,6 +1199,19 @@ function getCascadeFiltered() {
   });
 }
 
+// Calcule l'état d'un dépliant à la date du jour
+//   active   : aujourd'hui ∈ [debut, fin]
+//   future   : aujourd'hui < debut (à venir)
+//   expired  : aujourd'hui > fin
+function getDepliantStatus(debut, fin) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = debut ? (debut instanceof Date ? debut : new Date(debut)) : null;
+  const f = fin ? (fin instanceof Date ? fin : new Date(fin)) : null;
+  if (d && d > today) return 'future';
+  if (f && f < today) return 'expired';
+  return 'active';
+}
+
 function populateCascadeDepliant() {
   const sel = document.getElementById('cascade-depliant');
   if (!sel) return;
@@ -1219,9 +1233,20 @@ function populateCascadeDepliant() {
   };
   let html = '<option value="">Base de données complète (' + products.length + ')</option>';
   [...mediasMap.entries()].sort((a,b)=>String(a[0]).localeCompare(String(b[0]))).forEach(([m, info]) => {
-    html += '<option value="' + m + '">🗞 Dépliant n°' + m + ' — ' + info.count + ' produits (' + fmtDate(info.debut) + ' → ' + fmtDate(info.fin) + ')</option>';
+    const status = getDepliantStatus(info.debut, info.fin);
+    const icon = status === 'active' ? '🟢' : '⛔';
+    const suffix = status === 'future' ? ' — à venir' : (status === 'expired' ? ' — terminé' : '');
+    html += '<option value="' + m + '" data-status="' + status + '">' +
+      icon + ' Dépliant n°' + m + ' — ' + info.count + ' produits (' + fmtDate(info.debut) + ' → ' + fmtDate(info.fin) + ')' + suffix + '</option>';
   });
   sel.innerHTML = html;
+}
+
+// Renvoie le statut du dépliant actuellement sélectionné, ou null si aucune sélection
+function getActiveDepliantStatus() {
+  const sel = document.getElementById('cascade-depliant');
+  if (!sel || !sel.value) return null;
+  return sel.options[sel.selectedIndex]?.dataset.status || null;
 }
 
 function populateCascadeDomaine() {
@@ -1278,6 +1303,52 @@ function onCascadeDepliantChange() {
   populateCascadeDomaine();
   populateCascadeRayon();
   filterEanDropdown();
+  refreshDepliantBanner();
+}
+
+// Affiche un bandeau coloré selon l'état du dépliant sélectionné
+//   actif    → vert
+//   futur    → orange (verrouillé)
+//   expiré   → rouge (verrouillé)
+function refreshDepliantBanner() {
+  const banner = document.getElementById('depliant-banner');
+  if (!banner) return;
+  const sel = document.getElementById('cascade-depliant');
+  if (!sel || !sel.value) { banner.style.display = 'none'; return; }
+  const opt = sel.options[sel.selectedIndex];
+  const status = opt?.dataset.status || 'active';
+  const label = opt?.textContent || '';
+
+  if (status === 'active') {
+    banner.style.display = 'block';
+    banner.style.background = '#1e4d2b';
+    banner.style.color = '#a8e6c1';
+    banner.style.border = '1px solid #27ae60';
+    banner.innerHTML = '🟢 ' + label + ' — <span style="font-weight:400;">période active : génération d\'ILV autorisée</span>';
+  } else if (status === 'future') {
+    banner.style.display = 'block';
+    banner.style.background = '#5a3a1a';
+    banner.style.color = '#ffd9a8';
+    banner.style.border = '1px solid #e67e22';
+    banner.innerHTML = '⛔ ' + label + ' — <span style="font-weight:400;">dépliant non encore commencé : génération d\'ILV bloquée jusqu\'à la date de début</span>';
+  } else { // expired
+    banner.style.display = 'block';
+    banner.style.background = '#5a1a1a';
+    banner.style.color = '#ffb8b8';
+    banner.style.border = '1px solid #c0392b';
+    banner.innerHTML = '⛔ ' + label + ' — <span style="font-weight:400;">dépliant terminé : génération d\'ILV bloquée</span>';
+  }
+}
+
+// Vérifie si la génération est autorisée selon le dépliant sélectionné
+// Retourne null si OK, ou un message d'erreur si bloquée
+function checkDepliantBlock() {
+  const status = getActiveDepliantStatus();
+  if (!status || status === 'active') return null;
+  const sel = document.getElementById('cascade-depliant');
+  const m = sel.value;
+  if (status === 'future') return 'Dépliant n°' + m + ' non encore commencé — génération bloquée. Sélectionne un autre dépliant ou la base de données complète.';
+  return 'Dépliant n°' + m + ' terminé — génération bloquée. Sélectionne un autre dépliant ou la base de données complète.';
 }
 
 function onCascadeDomaineChange() {
@@ -1351,6 +1422,8 @@ function onGarantieLevelChange() {
 
 function addEanProduct() {
   if (!selectedEanProduct) return;
+  const block = checkDepliantBlock();
+  if (block) { alert(block); return; }
 
   const p = selectedEanProduct;
   const garantie = parseFloat(document.getElementById('ean-garantie-prix').value) || 0;
@@ -1586,6 +1659,8 @@ function makePdfFilename(item, creditKey, variant) {
 }
 
 async function generateAllILV() {
+  const block = checkDepliantBlock();
+  if (block) { alert(block); return; }
   const output = document.getElementById('output');
   output.innerHTML = '';
   pageCounter = 0;
@@ -1670,6 +1745,8 @@ function useBatchAll() {
 }
 
 async function generateBatchILV() {
+  const block = checkDepliantBlock();
+  if (block) { alert(block); return; }
   const prixMin = parseFloat(document.getElementById('batch-prix-min').value) || 0;
   const garLevel = parseInt(document.getElementById('batch-garantie-level').value);
   const includeLiv = document.getElementById('batch-include-liv').checked;
