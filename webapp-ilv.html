@@ -781,15 +781,16 @@ function parseBaseArticles(data) {
   const today = new Date(); today.setHours(0,0,0,0);
 
   // Convertit une cellule date Excel en Date JS (ou null)
+  // Normalise une cellule date Excel en Date locale à 00:00 (sans décalage TZ).
+  // Excel stocke souvent les dates comme UTC midnight → on extrait Y/M/D puis on
+  // recrée une Date locale du même calendrier.
   const toDate = (v) => {
     if (v == null || v === '') return null;
-    if (v instanceof Date) return v;
-    if (typeof v === 'number') {
-      // Excel serial date → ms (epoch 1899-12-30)
-      return new Date(Math.round((v - 25569) * 86400 * 1000));
-    }
-    const d = new Date(v);
-    return isNaN(d) ? null : d;
+    let d;
+    if (v instanceof Date) d = v;
+    else if (typeof v === 'number') d = new Date(Math.round((v - 25569) * 86400 * 1000));
+    else { d = new Date(v); if (isNaN(d)) return null; }
+    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
   };
 
   products = [];
@@ -922,7 +923,10 @@ function parseDepliantArticles(data) {
     const dateFin = iFin >= 0 ? toDate(row[iFin]) : null;
 
     // Sélection du prix : PV PUB si on est dans la fenêtre, sinon PV FDR
-    const inWindow = dateDebut && dateFin && dateDebut <= today && today <= dateFin;
+    // Souplesse : on bascule sur PV PUB dès J-1 du début pour préparer les ILV
+    let dGrace = null;
+    if (dateDebut) { dGrace = new Date(dateDebut); dGrace.setDate(dGrace.getDate() - 1); }
+    const inWindow = dGrace && dateFin && dGrace <= today && today <= dateFin;
     let prix;
     if (inWindow && !isNaN(pvPub) && pvPub > 0) prix = pvPub;
     else if (!isNaN(pvFdr) && pvFdr > 0) prix = pvFdr;
@@ -1200,14 +1204,18 @@ function getCascadeFiltered() {
 }
 
 // Calcule l'état d'un dépliant à la date du jour
-//   active   : aujourd'hui ∈ [debut, fin]
-//   future   : aujourd'hui < debut (à venir)
+//   active   : aujourd'hui ∈ [debut - 24h, fin]  (souplesse de J-1 pour préparer les ILV)
+//   future   : aujourd'hui < debut - 24h (à venir)
 //   expired  : aujourd'hui > fin
+const DEPLIANT_GRACE_DAYS = 1;
 function getDepliantStatus(debut, fin) {
   const today = new Date(); today.setHours(0,0,0,0);
   const d = debut ? (debut instanceof Date ? debut : new Date(debut)) : null;
   const f = fin ? (fin instanceof Date ? fin : new Date(fin)) : null;
-  if (d && d > today) return 'future';
+  if (d) {
+    const dGrace = new Date(d); dGrace.setDate(dGrace.getDate() - DEPLIANT_GRACE_DAYS);
+    if (today < dGrace) return 'future';
+  }
   if (f && f < today) return 'expired';
   return 'active';
 }
