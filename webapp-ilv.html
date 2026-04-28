@@ -348,12 +348,16 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
           </label>
         </div>
         <div>
-          <label>Variantes &agrave; g&eacute;n&eacute;rer</label>
-          <div style="display:flex;flex-direction:column;gap:3px;">
-            <label class="cb-inline"><input type="checkbox" id="batch-var-gar" checked> Avec garantie</label>
-            <label class="cb-inline"><input type="checkbox" id="batch-var-gar-liv"> Avec garantie + livraison</label>
-            <label class="cb-inline"><input type="checkbox" id="batch-var-sans" checked> Sans services</label>
+          <label>Variante g&eacute;n&eacute;r&eacute;e</label>
+          <div style="font-size:11px;color:#888;line-height:1.4;padding:6px 0;">
+            D&eacute;termin&eacute;e automatiquement&nbsp;:<br>
+            &bull; Garantie + livraison incluses &rarr; <b>gar_liv</b><br>
+            &bull; Garantie seule &rarr; <b>gar</b><br>
+            &bull; Aucun service &rarr; <b>sans</b>
           </div>
+          <input type="hidden" id="batch-var-gar" checked>
+          <input type="hidden" id="batch-var-gar-liv">
+          <input type="hidden" id="batch-var-sans" checked>
         </div>
       </div>
       <div class="actions-bar">
@@ -1676,22 +1680,29 @@ async function generateAllILV() {
 
   if (!cart.length) { alert('Le panier est vide.'); return; }
 
+  // Détermine la variante UNIQUE à générer pour chaque produit selon ses options
+  //   garantie incluse + livraison incluse → gar_liv
+  //   garantie incluse + pas de livraison  → gar
+  //   sans garantie                         → sans
+  const pickVariant = (item) => {
+    if (item.garantie > 0 && item.includeLiv && item.livraison > 0) return 'gar_liv';
+    if (item.garantie > 0) return 'gar';
+    return 'sans';
+  };
+
   cart.forEach(item => {
     Object.keys(item.credits).forEach(creditKey => {
       if (!item.credits[creditKey]) return;
       const ct = CREDIT_TYPES[creditKey];
       if (!ct) return;
 
-      ct.variants.forEach(variant => {
-        // Skip gar_liv if livraison not included or no livraison price
-        if (variant === 'gar_liv' && (!item.includeLiv || item.livraison <= 0)) return;
-        // Skip gar if no garantie
-        if (variant === 'gar' && item.garantie <= 0) return;
+      const variant = pickVariant(item);
+      // On vérifie quand même que cette variante existe pour ce crédit (sécurité)
+      if (!ct.variants.includes(variant)) return;
 
-        const html = generatePage(creditKey, variant, item);
-        output.insertAdjacentHTML('beforeend', html);
-        generatedPagesMeta.push({ filename: makePdfFilename(item, creditKey, variant) });
-      });
+      const html = generatePage(creditKey, variant, item);
+      output.insertAdjacentHTML('beforeend', html);
+      generatedPagesMeta.push({ filename: makePdfFilename(item, creditKey, variant) });
     });
   });
 
@@ -1806,18 +1817,16 @@ async function generateBatchILV() {
       includeLiv
     };
 
-    const variants = [];
-    if (varGar && garantie > 0) variants.push('gar');
-    if (varGarLiv && includeLiv && livraison > 0 && garantie > 0) variants.push('gar_liv');
-    if (varSans) variants.push('sans');
+    // Variante UNIQUE selon les options sélectionnées (plus de déclinaisons multiples)
+    let variant = 'sans';
+    if (garantie > 0 && includeLiv && livraison > 0) variant = 'gar_liv';
+    else if (garantie > 0) variant = 'gar';
 
-    for (const variant of variants) {
-      const html = generatePage(creditKey, variant, item);
-      output.insertAdjacentHTML('beforeend', html);
-      const pageEl = output.lastElementChild;
-      pageInfos.push({ element: pageEl, filename: makePdfFilename(item, creditKey, variant) });
-      totalPages++;
-    }
+    const html = generatePage(creditKey, variant, item);
+    output.insertAdjacentHTML('beforeend', html);
+    const pageEl = output.lastElementChild;
+    pageInfos.push({ element: pageEl, filename: makePdfFilename(item, creditKey, variant) });
+    totalPages++;
   }
 
   if (!totalPages) {
