@@ -236,6 +236,12 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
             <option value="">-- Tous les rayons --</option>
           </select>
         </div>
+        <div>
+          <label>Gamme</label>
+          <select id="cascade-gamme" onchange="filterEanDropdown()">
+            <option value="">-- Toutes les gammes --</option>
+          </select>
+        </div>
         <div id="cascade-promo-wrap">
           <label>Promo</label>
           <select id="cascade-promo" onchange="filterEanDropdown()">
@@ -1251,12 +1257,14 @@ function getActiveSource() {
 function getCascadeFiltered() {
   const dom = document.getElementById('cascade-domaine')?.value || '';
   const ray = document.getElementById('cascade-rayon')?.value || '';
+  const gam = document.getElementById('cascade-gamme')?.value || '';
   const promo = document.getElementById('cascade-promo')?.value || '';
   const query = document.getElementById('ean-filter')?.value.trim().toUpperCase() || '';
   const isDepliant = !!document.getElementById('cascade-depliant')?.value;
   return getActiveSource().filter(p => {
     if (dom && (p.domaine || '') !== dom) return false;
     if (ray && (p.rayon || '') !== ray) return false;
+    if (gam && String(p.gamme || '') !== gam) return false;
     // Filtre promo : ne s'applique qu'à la base (pas de promo dans le contexte dépliant)
     if (!isDepliant) {
       if (promo === 'yes' && !(p.prixPromo && !p.promoExpired)) return false;
@@ -1365,15 +1373,49 @@ function populateCascadeRayon() {
     opt.textContent = r + ' (' + count + ')';
     sel.appendChild(opt);
   });
+  // Met aussi à jour les gammes (la source vient potentiellement de changer)
+  populateCascadeGamme();
+}
+
+// Liste les gammes (LIB_GAMME) selon la source + filtres domaine/rayon courants.
+// Tri intelligent : numériques croissants d'abord, puis textuels alphabétiques.
+function populateCascadeGamme() {
+  const sel = document.getElementById('cascade-gamme');
+  if (!sel) return;
+  const dom = document.getElementById('cascade-domaine')?.value || '';
+  const ray = document.getElementById('cascade-rayon')?.value || '';
+  let source = getActiveSource();
+  if (dom) source = source.filter(p => p.domaine === dom);
+  if (ray) source = source.filter(p => p.rayon === ray);
+  const gammes = [...new Set(source.map(p => String(p.gamme || '').trim()).filter(Boolean))];
+  gammes.sort((a, b) => {
+    const na = parseFloat(a), nb = parseFloat(b);
+    const aNum = !isNaN(na) && /^\d/.test(a);
+    const bNum = !isNaN(nb) && /^\d/.test(b);
+    if (aNum && bNum) return na - nb;
+    if (aNum) return -1; // numériques avant
+    if (bNum) return 1;
+    return a.localeCompare(b);
+  });
+  sel.innerHTML = '<option value="">-- Toutes les gammes (' + source.length + ') --</option>';
+  gammes.forEach(g => {
+    const count = source.filter(p => String(p.gamme || '').trim() === g).length;
+    const opt = document.createElement('option');
+    opt.value = g;
+    opt.textContent = g + ' (' + count + ')';
+    sel.appendChild(opt);
+  });
 }
 
 function onCascadeDepliantChange() {
-  // Reset domaine/rayon car la source change
+  // Reset domaine/rayon/gamme car la source change
   document.getElementById('cascade-domaine').value = '';
   document.getElementById('cascade-rayon').value = '';
+  if (document.getElementById('cascade-gamme')) document.getElementById('cascade-gamme').value = '';
   document.getElementById('cascade-promo').value = '';
   populateCascadeDomaine();
   populateCascadeRayon();
+  populateCascadeGamme();
   filterEanDropdown();
   refreshDepliantBanner();
 }
@@ -1424,11 +1466,18 @@ function checkDepliantBlock() {
 }
 
 function onCascadeDomaineChange() {
+  // Reset rayon et gamme car ils dépendent du domaine
+  if (document.getElementById('cascade-rayon')) document.getElementById('cascade-rayon').value = '';
+  if (document.getElementById('cascade-gamme')) document.getElementById('cascade-gamme').value = '';
   populateCascadeRayon();
+  populateCascadeGamme();
   filterEanDropdown();
 }
 
 function onCascadeRayonChange() {
+  // Reset gamme car elle dépend du rayon
+  if (document.getElementById('cascade-gamme')) document.getElementById('cascade-gamme').value = '';
+  populateCascadeGamme();
   filterEanDropdown();
 }
 
