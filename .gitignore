@@ -19,3 +19,10 @@ Thumbs.db
 
 # macOS metadata
 ._*
+
+# Python backend
+server/venv/
+server/__pycache__/
+server/**/__pycache__/
+data/backups/
+data/products.json
