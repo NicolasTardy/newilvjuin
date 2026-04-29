@@ -365,6 +365,7 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
     <div class="actions-bar">
       <button class="btn btn-primary" id="btn-generate" onclick="generateAllILV()">G&eacute;n&eacute;rer les ILV</button>
       <button class="btn btn-primary" id="btn-pdf" onclick="exportAllPDF()" style="display:none;background:#8e44ad;">T&eacute;l&eacute;charger PDF (zip)</button>
+      <button class="btn btn-primary" id="btn-pdf-single" onclick="exportSinglePDF()" style="display:none;background:#16a085;">PDF unique (impression group&eacute;e)</button>
     </div>
     <div class="progress-bar-wrap" id="pdf-progress-wrap">
       <div class="progress-bar-fill" id="pdf-progress-fill"></div>
@@ -1849,6 +1850,7 @@ async function generateAllILV() {
     output.innerHTML = '<p style="color:#999;text-align:center;">Aucune page g\u00E9n\u00E9r\u00E9e. V\u00E9rifiez les types de cr\u00E9dit s\u00E9lectionn\u00E9s.</p>';
   }
   document.getElementById('btn-pdf').style.display = 'inline-block';
+  document.getElementById('btn-pdf-single').style.display = 'inline-block';
   await renderVectorPages();
   output.scrollIntoView({ behavior: 'smooth' });
 }
@@ -2068,6 +2070,51 @@ async function exportAllPDF() {
   URL.revokeObjectURL(url);
 
   progressText.textContent = pages.length + ' ILV export\u00E9es.';
+}
+
+// Export en UN SEUL PDF multi-pages (1 page A5 par ILV)
+// Utile pour lancer une impression globale sans ouvrir N fichiers.
+async function exportSinglePDF() {
+  const pages = document.querySelectorAll('#output .page:not(.page--excluded)');
+  if (!pages.length) { alert('Aucune page \u00E0 exporter.'); return; }
+
+  const progressWrap = document.getElementById('pdf-progress-wrap');
+  const progressFill = document.getElementById('pdf-progress-fill');
+  const progressText = document.getElementById('pdf-progress-text');
+  progressWrap.style.display = 'block';
+  progressFill.style.width = '0%';
+
+  const A5_W = 148, A5_H = 210, scale = 3;
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a5' });
+
+  for (let i = 0; i < pages.length; i++) {
+    const pageEl = pages[i];
+    const canvas = await html2canvas(pageEl, {
+      scale: scale, useCORS: true, backgroundColor: '#ffffff',
+      width: pageEl.offsetWidth, height: pageEl.offsetHeight, logging: false
+    });
+    const imgData = canvas.toDataURL('image/jpeg', 0.92);
+    if (i > 0) pdf.addPage('a5', 'portrait');
+    pdf.addImage(imgData, 'JPEG', 0, 0, A5_W, A5_H);
+
+    const pct = Math.round(((i + 1) / pages.length) * 100);
+    progressFill.style.width = pct + '%';
+    progressText.textContent = 'Page ' + (i + 1) + ' / ' + pages.length + ' int\u00E9gr\u00E9e...';
+    await new Promise(r => setTimeout(r, 10));
+  }
+
+  progressText.textContent = 'Cr\u00E9ation du PDF unique...';
+  const blob = pdf.output('blob');
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'ILV_global_' + new Date().toISOString().slice(0, 10) + '.pdf';
+  a.click();
+  URL.revokeObjectURL(url);
+
+  progressText.textContent = pages.length + ' ILV r\u00E9unies dans un PDF unique.';
+  progressFill.style.width = '100%';
 }
 
 // ============================================================
