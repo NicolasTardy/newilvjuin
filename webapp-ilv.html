@@ -2183,7 +2183,8 @@ function buildValuesForPage(payload) {
   return {
     'designation':       product.designation,
     '_doublon_designation': product.designation,
-    'ean_code':          product.ean ? 'EAN : ' + product.ean : '',
+    'ean_code':          (product.ean ? 'EAN : ' + product.ean : '') +
+                          (product.prix ? (product.ean ? '   ·   ' : '') + 'Prix : ' + formatMontant(product.prix) : ''),
     'entier_mensu':      String(entier),
     'centimes':          cents,
     'mensu_line_1':      line1,
