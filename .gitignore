@@ -26,3 +26,4 @@ server/__pycache__/
 server/**/__pycache__/
 data/backups/
 data/products.json
+data/depliant.json
