@@ -302,7 +302,11 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
             </span>
           </div>
         </div>
-        <div style="margin-top:10px;"><button class="btn btn-secondary" onclick="addEanProduct()">Ajouter au panier</button></div>
+        <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-secondary" onclick="addEanProduct()">Ajouter au panier</button>
+          <button class="btn btn-primary" id="btn-gen-python" onclick="generateILVPython()" style="background:#27ae60;">&#8659; G&eacute;n&eacute;rer ILV (PDF)</button>
+          <span id="btn-gen-status" style="font-size:12px;color:#999;"></span>
+        </div>
       </div>
     </div>
 
@@ -339,7 +343,60 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
           <input type="hidden" id="m-livraison" value="0">
         </div>
       </div>
-      <div style="margin-top:8px;"><button class="btn btn-secondary" onclick="addManualProduct()">Ajouter au panier</button></div>
+      <div style="margin-top:8px;"><button class="btn btn-secondary" onclick="addManualProduct()">Ajouter au panier</button> <button class="btn btn-primary" onclick="previewManualProduct()" style="margin-left:8px;">👁️ Aperçu</button></div>
+      <div id="preview-container" style="display:none;margin-top:16px;border:1px solid #444;border-radius:8px;overflow:hidden;">
+        <div style="background:#2c3e6b;padding:8px;font-size:12px;color:#ddd;display:flex;justify-content:space-between;">
+          <span>Aperçu PDF</span>
+          <button onclick="document.getElementById('preview-container').style.display='none'" style="background:none;border:none;color:#ddd;cursor:pointer;font-weight:700;">✕</button>
+        </div>
+        <iframe id="preview-iframe" style="width:100%;height:600px;border:none;" src=""></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batch from listing -->
+  <div class="panel">
+    <h2>G&eacute;n&eacute;ration par listing</h2>
+    <div class="batch-config">
+      <div>
+        <label>Source</label>
+        <select id="batch-source" onchange="refreshBatchInfo()">
+          <option value="base">Base articles compl&egrave;te</option>
+          <option value="depliant">D&eacute;pliant charg&eacute;</option>
+        </select>
+      </div>
+      <div>
+        <label>Prix minimum</label>
+        <input type="number" id="batch-prix-min" step="1" min="0" value="300" onchange="refreshBatchInfo()">
+      </div>
+      <div>
+        <label>Niveau de garantie</label>
+        <select id="batch-garantie-level" onchange="refreshBatchInfo()">
+          <option value="2">&#9733;&#9733;&#9733; Garantie 3 &eacute;toiles</option>
+          <option value="1">&#9733; Garantie 1 &eacute;toile</option>
+          <option value="0">Sans garantie</option>
+        </select>
+      </div>
+      <div>
+        <label>Livraison</label>
+        <label class="cb-inline" style="height:34px;"><input type="checkbox" id="batch-include-liv" onchange="refreshBatchInfo()"> Inclure dans la mensualit&eacute;</label>
+      </div>
+    </div>
+    <div class="upload-zone" id="uz-batch" onclick="document.getElementById('file-batch').click()">
+      <input type="file" id="file-batch" accept=".xlsx,.xls,.csv,.txt" onchange="loadBatchFile()">
+      <div class="uz-label">Charger un fichier listing contenant les EAN</div>
+      <div class="uz-name" id="uz-batch-name">Aucun fichier</div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button class="btn btn-secondary" onclick="useBatchAll()">Utiliser toute la source</button>
+      <button class="btn btn-primary" onclick="generateBatchILV()">G&eacute;n&eacute;rer le listing en ZIP</button>
+    </div>
+    <div id="batch-list-info" style="display:none;">
+      <div class="batch-stats" id="batch-stats"></div>
+      <div class="progress-bar-wrap" id="batch-progress-wrap">
+        <div class="progress-bar-fill" id="batch-progress-fill"></div>
+      </div>
+      <div class="progress-text" id="batch-progress-text"></div>
     </div>
   </div>
 
@@ -363,9 +420,8 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
       </table>
     </div>
     <div class="actions-bar">
-      <button class="btn btn-primary" id="btn-generate" onclick="generateAllILV()">G&eacute;n&eacute;rer les ILV</button>
-      <button class="btn btn-primary" id="btn-pdf" onclick="exportAllPDF()" style="display:none;background:#8e44ad;">T&eacute;l&eacute;charger PDF (zip)</button>
-      <button class="btn btn-primary" id="btn-pdf-single" onclick="exportSinglePDF()" style="display:none;background:#16a085;">PDF unique (impression group&eacute;e)</button>
+      <button class="btn btn-primary" id="btn-generate" onclick="generateCartPython()">G&eacute;n&eacute;rer les ILV</button>
+      <span id="btn-generate-status" style="font-size:12px;color:#999;margin-left:8px;"></span>
     </div>
     <div class="progress-bar-wrap" id="pdf-progress-wrap">
       <div class="progress-bar-fill" id="pdf-progress-fill"></div>
@@ -439,11 +495,11 @@ const RAYON_TO_UNIVERS_ILV = {
 };
 
 const STRATEGIE_ILV = [
-  { min: 80, max: 300, univers: ["PEM","GEM/TV","MEUBLE","LITERIE"], credit: "5x_sf" },
-  { min: 300, max: 600, univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "10x_ir" },
-  { min: 600, max: 1200, univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "20x_ir" },
-  { min: 1200, max: 2000, univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "36x_si" },
-  { min: 2000, max: 99999, univers: ["GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "60x_si" },
+  { min:   80, max:  400,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "5x_sf"  },
+  { min:  400, max:  900,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "10x_ir" },
+  { min:  900, max: 1500,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "20x_ir" },
+  { min: 1500, max: 4000,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "36x_si" },
+  { min: 4000, max: 99999, univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "48x_si" },
 ];
 
 const COEFF_MENSUELS = {
@@ -1571,6 +1627,60 @@ function refreshGarantieUI() {
   }
 }
 
+async function generateILVPython() {
+  if (!selectedEanProduct) { alert('Sélectionnez d\'abord un produit.'); return; }
+  const p = selectedEanProduct;
+  const includeGar = document.getElementById('ean-include-gar').checked;
+  const garantiePrix = includeGar ? (parseFloat(document.getElementById('ean-garantie-prix').value) || 0) : 0;
+  const includeLiv = document.getElementById('ean-include-liv').checked;
+  const livraisonPrix = (selectedEanWarAll && includeLiv) ? (selectedEanWarAll.livraison || 0) : 0;
+
+  const btn = document.getElementById('btn-gen-python');
+  const status = document.getElementById('btn-gen-status');
+  btn.disabled = true;
+  btn.textContent = 'Génération...';
+  status.textContent = '';
+
+  try {
+    const resp = await fetch('/api/generate-ilv', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        designation: p.designation,
+        prix: p.prix,
+        rayon_ilv: p.rayonILV || p.rayon || '',
+        ean: p.ean || '',
+        include_garantie: includeGar,
+        garantie_prix: garantiePrix,
+        include_livraison: includeLiv,
+        livraison_prix: livraisonPrix,
+      })
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: resp.statusText }));
+      status.textContent = '❌ ' + (err.error || resp.statusText);
+      return;
+    }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const eanSafe = (p.ean || p.designation || 'produit').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20);
+    a.download = 'ILV_' + eanSafe + '.zip';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    status.textContent = '✓ PDF téléchargé';
+    setTimeout(() => { status.textContent = ''; }, 3000);
+  } catch (e) {
+    status.textContent = '❌ ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⬇ Générer ILV (PDF)';
+  }
+}
+
 function addEanProduct() {
   if (!selectedEanProduct) return;
   const block = checkDepliantBlock();
@@ -1734,6 +1844,44 @@ function addManualProduct() {
   renderCart();
 }
 
+function previewManualProduct() {
+  const designation = document.getElementById('m-designation').value.trim();
+  const prix = parseFloat(document.getElementById('m-prix').value) || 0;
+  const rayon = document.getElementById('m-rayon').value;
+  const garantie = parseFloat(document.getElementById('m-garantie').value) || 0;
+  const livraison = document.getElementById('m-include-liv').checked ? (parseFloat(document.getElementById('m-livraison').value) || 0) : 0;
+
+  if (!designation || prix <= 0) {
+    alert('Veuillez renseigner la désignation et le prix.');
+    return;
+  }
+
+  const item = {
+    designation,
+    prix,
+    rayon_ilv: rayon,
+    include_garantie: garantie > 0,
+    garantie_prix: garantie,
+    include_livraison: livraison > 0,
+    livraison_prix: livraison,
+    ean: document.getElementById('m-ean').value.trim() || 'PREV'
+  };
+
+  document.getElementById('preview-container').style.display = 'none';
+  fetch('/api/generate-ilv-preview', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(item)
+  }).then(r => {
+    if (!r.ok) return r.json().then(e => { throw e; });
+    return r.blob().then(blob => {
+      const url = URL.createObjectURL(blob);
+      document.getElementById('preview-iframe').src = url;
+      document.getElementById('preview-container').style.display = 'block';
+    });
+  }).catch(e => alert('Erreur aperçu: ' + (e.error || e)));
+}
+
 // ============================================================
 // UI: CART
 // ============================================================
@@ -1811,6 +1959,151 @@ function makePdfFilename(item, creditKey, variant) {
   return famille + '_' + ean + '_' + creditKey + '_' + variant + '.pdf';
 }
 
+async function generateCartPython() {
+  if (!cart.length) { alert('Le panier est vide.'); return; }
+
+  const pickVariant = (item) => {
+    if (item.garantie > 0 && item.includeLiv && item.livraison > 0) return 'gar_liv';
+    if (item.garantie > 0) return 'gar';
+    return 'sans';
+  };
+
+  const items = [];
+  cart.forEach(item => {
+    Object.keys(item.credits).forEach(creditKey => {
+      if (!item.credits[creditKey]) return;
+      const ct = CREDIT_TYPES[creditKey];
+      if (!ct) return;
+      const variant = pickVariant(item);
+      if (!ct.variants.includes(variant)) return;
+      items.push({
+        designation:       item.designation,
+        prix:              item.prix,
+        rayon_ilv:         item.rayonILV || item.rayon || '',
+        ean:               item.ean || '',
+        credit_key:        creditKey,
+        include_garantie:  item.garantie > 0,
+        garantie_prix:     item.garantie || 0,
+        include_livraison: !!(item.includeLiv && item.livraison > 0),
+        livraison_prix:    item.livraison || 0,
+      });
+    });
+  });
+
+  if (!items.length) { alert('Aucune combinaison produit × crédit sélectionnée.'); return; }
+
+  const btn    = document.getElementById('btn-generate');
+  const status = document.getElementById('btn-generate-status');
+  btn.disabled = true;
+  btn.textContent = 'Génération en cours…';
+  status.textContent = items.length + ' ILV…';
+
+  try {
+    const resp = await fetch('/api/generate-ilv-batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(items),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: resp.statusText }));
+      status.textContent = '❌ ' + (err.error || resp.statusText);
+      return;
+    }
+
+    // Lire les headers avant de consommer le body
+    const errorsHeader = resp.headers.get('X-ILV-Errors');
+    const batchErrors  = errorsHeader ? JSON.parse(errorsHeader) : [];
+
+    const zipBlob = await resp.blob();
+
+    // Extraire et afficher les PDFs dans la page
+    const zip = await JSZip.loadAsync(zipBlob);
+    const output = document.getElementById('output');
+    output.innerHTML = '';
+
+    // Bouton téléchargement
+    const dlWrap = document.createElement('div');
+    dlWrap.style.cssText = 'text-align:center;margin:20px 0 30px;';
+    const dlBtn = document.createElement('button');
+    dlBtn.className = 'btn btn-primary';
+    dlBtn.style.background = '#8e44ad';
+    dlBtn.textContent = '⬇ Télécharger le ZIP (' + Object.keys(zip.files).length + ' fichiers)';
+    dlBtn.onclick = () => {
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'ILV_' + new Date().toISOString().slice(0, 10) + '.zip';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
+    dlWrap.appendChild(dlBtn);
+    output.appendChild(dlWrap);
+
+    // Attendre pdf.js
+    let tries = 0;
+    while (!window.__pdfjs && tries++ < 100) await new Promise(r => setTimeout(r, 50));
+
+    // Rendre chaque PDF
+    for (const [filename, entry] of Object.entries(zip.files)) {
+      if (entry.dir) continue;
+      const bytes = await entry.async('uint8array');
+
+      const card = document.createElement('div');
+      card.style.cssText = 'margin:0 auto 40px;max-width:700px;text-align:center;';
+
+      const lbl = document.createElement('p');
+      lbl.textContent = filename;
+      lbl.style.cssText = 'color:#888;font-size:11px;margin-bottom:8px;font-family:monospace;';
+      card.appendChild(lbl);
+
+      try {
+        const pdfDoc = await window.__pdfjs.getDocument({ data: bytes }).promise;
+        for (let p = 1; p <= pdfDoc.numPages; p++) {
+          const page = await pdfDoc.getPage(p);
+          const vp   = page.getViewport({ scale: 1.5 });
+          const canvas = document.createElement('canvas');
+          canvas.width  = vp.width;
+          canvas.height = vp.height;
+          canvas.style.cssText = 'max-width:100%;box-shadow:0 4px 20px rgba(0,0,0,.4);border-radius:4px;display:block;margin:0 auto 8px;';
+          await page.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+          card.appendChild(canvas);
+        }
+      } catch (e) {
+        const err = document.createElement('p');
+        err.textContent = '⚠ Rendu impossible : ' + e.message;
+        err.style.color = '#e74c3c';
+        card.appendChild(err);
+      }
+      output.appendChild(card);
+    }
+
+    // Afficher les erreurs éventuelles (produits sans template)
+    if (batchErrors.length) {
+      const errDiv = document.createElement('div');
+      errDiv.style.cssText = 'margin:0 auto 24px;max-width:700px;background:#fff3cd;border:1px solid #ffc107;border-radius:6px;padding:12px 16px;';
+      errDiv.innerHTML = '<strong>⚠ ' + batchErrors.length + ' produit(s) non généré(s) :</strong><ul style="margin:6px 0 0;padding-left:20px;">'
+        + batchErrors.map(e => '<li style="font-size:13px;color:#856404;">' + e + '</li>').join('')
+        + '</ul>';
+      output.insertBefore(errDiv, output.firstChild);
+    }
+
+    output.scrollIntoView({ behavior: 'smooth' });
+    const okCount = Object.keys(zip.files).length;
+    if (batchErrors.length) {
+      status.textContent = '⚠ ' + okCount + ' générée(s), ' + batchErrors.length + ' en erreur';
+    } else {
+      status.textContent = '✓ ' + okCount + ' ILV générées';
+    }
+    setTimeout(() => { status.textContent = ''; }, 8000);
+
+  } catch (e) {
+    status.textContent = '❌ ' + e.message;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Générer les ILV';
+  }
+}
+
 async function generateAllILV() {
   const block = checkDepliantBlock();
   if (block) { alert(block); return; }
@@ -1861,36 +2154,92 @@ async function generateAllILV() {
 // ============================================================
 let batchEanList = null; // null = use all products, array = specific EANs
 
+function normalizeEan(value) {
+  const raw = String(value == null ? '' : value).trim();
+  if (!raw) return '';
+  const withoutScientific = raw.match(/^(\d+)(?:\.0+)?$/);
+  if (withoutScientific) return withoutScientific[1];
+  const digits = raw.replace(/\D/g, '');
+  return digits.length >= 8 && digits.length <= 14 ? digits : '';
+}
+
+function getBatchSourceProducts() {
+  const source = document.getElementById('batch-source')?.value || 'base';
+  return source === 'depliant' ? depliantProducts : products;
+}
+
+function getBatchCandidateProducts() {
+  const sourceProducts = getBatchSourceProducts();
+  const prixMin = parseFloat(document.getElementById('batch-prix-min')?.value) || 0;
+  let prods = batchEanList
+    ? sourceProducts.filter(p => batchEanList.includes(normalizeEan(p.ean)))
+    : sourceProducts.slice();
+  return prods.filter(p => p.prix >= prixMin && p.universILV);
+}
+
+function refreshBatchInfo() {
+  const sourceProducts = getBatchSourceProducts();
+  if (!sourceProducts.length) {
+    document.getElementById('batch-stats').textContent = 'Aucun produit disponible dans cette source.';
+    document.getElementById('batch-list-info').style.display = 'block';
+    return;
+  }
+
+  const candidates = getBatchCandidateProducts();
+  if (batchEanList) {
+    const matched = sourceProducts.filter(p => batchEanList.includes(normalizeEan(p.ean)));
+    const matchedSet = new Set(matched.map(p => normalizeEan(p.ean)).filter(Boolean));
+    const missing = batchEanList.filter(ean => !matchedSet.has(ean)).length;
+    document.getElementById('batch-stats').textContent =
+      batchEanList.length + ' EAN dans le listing · ' +
+      matched.length + ' produits trouvés · ' +
+      candidates.length + ' produits générables · ' +
+      missing + ' introuvables';
+  } else {
+    document.getElementById('batch-stats').textContent =
+      candidates.length + ' produits générables sur ' + sourceProducts.length + ' produits dans la source.';
+  }
+  document.getElementById('batch-list-info').style.display = 'block';
+}
+
 function loadBatchFile() {
   const fileEl = document.getElementById('file-batch');
   if (!fileEl.files.length) { alert('S\u00E9lectionnez un fichier.'); return; }
 
   const file = fileEl.files[0];
+  document.getElementById('uz-batch-name').textContent = file.name;
+  document.getElementById('uz-batch').classList.add('has-file');
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
-      const data = new Uint8Array(e.target.result);
-      const wb = XLSX.read(data, { type: 'array' });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      let rows = [];
+      if (/\.(csv|txt)$/i.test(file.name)) {
+        const text = new TextDecoder('utf-8').decode(e.target.result);
+        rows = text.split(/\r?\n/).map(line => line.split(/[;\t,]/));
+      } else {
+        const data = new Uint8Array(e.target.result);
+        const wb = XLSX.read(data, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '', raw: false });
+      }
 
-      // Extract EANs from first non-empty column
-      batchEanList = [];
+      // Extract EANs from any cell. Keep order, remove duplicates.
+      const seen = new Set();
       for (let r = 0; r < rows.length; r++) {
         for (let c = 0; c < rows[r].length; c++) {
-          const val = String(rows[r][c]).trim();
-          if (val && /^\d{8,13}$/.test(val)) {
-            batchEanList.push(val);
-            break;
+          const val = normalizeEan(rows[r][c]);
+          if (val && !seen.has(val)) {
+            seen.add(val);
           }
         }
       }
+      batchEanList = Array.from(seen);
 
-      // Match against loaded products
-      const matched = products.filter(p => batchEanList.includes(p.ean));
-      document.getElementById('batch-stats').textContent =
-        batchEanList.length + ' EAN dans le fichier \u00B7 ' + matched.length + ' produits trouv\u00E9s dans la base';
-      document.getElementById('batch-list-info').style.display = 'block';
+      if (!batchEanList.length) {
+        alert('Aucun EAN reconnu dans ce fichier.');
+        return;
+      }
+      refreshBatchInfo();
     } catch(ex) {
       alert('Erreur lecture fichier: ' + ex.message);
     }
@@ -1900,27 +2249,21 @@ function loadBatchFile() {
 
 function useBatchAll() {
   batchEanList = null;
-  document.getElementById('batch-stats').textContent =
-    products.length + ' produits charg\u00E9s seront trait\u00E9s (selon prix minimum)';
-  document.getElementById('batch-list-info').style.display = 'block';
+  document.getElementById('uz-batch-name').textContent = 'Toute la source sélectionnée';
+  document.getElementById('uz-batch').classList.remove('has-file');
+  refreshBatchInfo();
 }
 
 async function generateBatchILV() {
-  const block = checkDepliantBlock();
+  const batchSource = document.getElementById('batch-source')?.value || 'base';
+  const block = batchSource === 'depliant' ? checkDepliantBlock() : null;
   if (block) { alert(block); return; }
   const prixMin = parseFloat(document.getElementById('batch-prix-min').value) || 0;
   const garLevel = parseInt(document.getElementById('batch-garantie-level').value);
   const includeLiv = document.getElementById('batch-include-liv').checked;
-  const varGar = document.getElementById('batch-var-gar').checked;
-  const varGarLiv = document.getElementById('batch-var-gar-liv').checked;
-  const varSans = document.getElementById('batch-var-sans').checked;
 
   // Filter products
-  let prods = batchEanList
-    ? products.filter(p => batchEanList.includes(p.ean))
-    : products.slice();
-
-  prods = prods.filter(p => p.prix >= prixMin && p.universILV);
+  let prods = getBatchCandidateProducts();
 
   if (!prods.length) { alert('Aucun produit ne correspond aux crit\u00E8res.'); return; }
 
@@ -1928,6 +2271,8 @@ async function generateBatchILV() {
   const progressFill = document.getElementById('batch-progress-fill');
   const progressText = document.getElementById('batch-progress-text');
   progressWrap.style.display = 'block';
+  progressFill.style.width = '0%';
+  progressText.textContent = 'Préparation des ILV...';
 
   // Build all pages in a hidden container
   const output = document.getElementById('output');
@@ -1978,7 +2323,7 @@ async function generateBatchILV() {
   }
 
   await renderVectorPages();
-  progressText.textContent = '0 / ' + totalPages + ' pages converties en PDF...';
+  progressText.textContent = '0 / ' + totalPages + ' ILV converties en PDF...';
 
   // Generate PDFs
   const zip = new JSZip();
@@ -1991,7 +2336,7 @@ async function generateBatchILV() {
 
     const pct = Math.round(((i + 1) / totalPages) * 100);
     progressFill.style.width = pct + '%';
-    progressText.textContent = (i + 1) + ' / ' + totalPages + ' pages converties en PDF...';
+    progressText.textContent = (i + 1) + ' / ' + totalPages + ' ILV converties en PDF...';
 
     // Yield to UI
     await new Promise(r => setTimeout(r, 10));
