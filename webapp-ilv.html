@@ -1941,9 +1941,11 @@ function renderCart() {
   bodyEl.innerHTML = cart.map((item, idx) => {
     const creditCBs = Object.keys(CREDIT_TYPES).map(ck => {
       const ct = CREDIT_TYPES[ck];
-      const checked = item.credits[ck] ? ' checked' : '';
-      return '<label style="display:inline-flex;align-items:center;gap:3px;margin-right:8px;font-size:11px;white-space:nowrap;color:#bbb;">' +
-        '<input type="checkbox" data-idx="' + idx + '" data-ck="' + ck + '" onchange="toggleCredit(' + idx + ',\'' + ck + '\',this.checked)"' + checked + '>' +
+      // Plafond légal : 5× sans frais limité à 3 000 €
+      const disabled = (ck === '5x_sf' && item.prix > 3000) ? ' disabled title="5× limité à 3 000 €"' : '';
+      const checked = (item.credits[ck] && !disabled) ? ' checked' : '';
+      return '<label style="display:inline-flex;align-items:center;gap:3px;margin-right:8px;font-size:11px;white-space:nowrap;color:' + (disabled ? '#555' : '#bbb') + ';">' +
+        '<input type="checkbox" data-idx="' + idx + '" data-ck="' + ck + '" onchange="toggleCredit(' + idx + ',\'' + ck + '\',this.checked)"' + checked + disabled + '>' +
         ct.label + '</label>';
     }).join('');
 
@@ -1964,6 +1966,11 @@ function renderCart() {
 }
 
 function toggleCredit(idx, ck, checked) {
+  // Plafond légal : 5× sans frais limité à 3 000 €
+  if (checked && ck === '5x_sf' && cart[idx].prix > 3000) {
+    alert('Le 5× sans frais est limité à 3 000 € maximum.');
+    return;
+  }
   if (checked) cart[idx].credits[ck] = true;
   else delete cart[idx].credits[ck];
 }
@@ -1974,6 +1981,10 @@ function toggleLiv(idx, checked) {
 
 function updateCartPrice(idx, val) {
   cart[idx].prix = parseFloat(val) || 0;
+  // Plafond 5× : décocher si prix > 3 000 €
+  if (cart[idx].prix > 3000 && cart[idx].credits['5x_sf']) {
+    delete cart[idx].credits['5x_sf'];
+  }
   // Re-lookup warranty
   const item = cart[idx];
   if (item.universILV && item.rayonILV) {

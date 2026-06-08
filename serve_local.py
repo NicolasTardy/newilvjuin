@@ -145,6 +145,10 @@ def _generate_one(item: dict) -> list[tuple[str, bytes]]:
     if not credit_key:
         raise ValueError("Aucun crédit applicable")
 
+    # Plafond légal : 5× sans frais limité à 3 000 €
+    if credit_key == "5x_sf" and prix > 3000:
+        raise ValueError("Le 5× sans frais est limité à 3 000 € maximum")
+
     ct      = gen.CREDIT_TYPES[credit_key]
     duree   = ct["duree"]
     famille = ct["famille"]
