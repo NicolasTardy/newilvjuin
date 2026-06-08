@@ -1404,7 +1404,7 @@ def generate_a3_pdf(slug, variant, designation, calc, montant_finance,
     """
     vals = _a3_compute_values(slug, variant, designation, calc, montant_finance,
                                garantie_prix, livraison_prix, duree, famille)
-    ml_text = _build_ml_text(slug, vals)
+    ml_text = generer_ml_text(slug, duree, famille, montant_finance, calc)
 
     mensu_entier = vals.get("mensualite_entier", "")
     centimes     = vals.get("centimes_str", "00")
@@ -1642,7 +1642,7 @@ def generate_a3_stc_pdf(slug, variant, designation, calc, montant_finance,
         ml_rect = specs.get("_ml_rect")
         ml_fsz  = specs.get("_ml_fontsize", 8.0)
         if ml_rect is not None:
-            ml_text = _build_ml_text(slug, vals)
+            ml_text = generer_ml_text(slug, duree, famille, montant_finance, calc)
             rc = page.insert_textbox(
                 ml_rect, ml_text,
                 fontname="helv", fontsize=ml_fsz,
