@@ -36,10 +36,14 @@ FONTS_DIR = BASE_DIR / "fonts"
 ARCHIVO_BOLD_TTF = FONTS_DIR / "ArchivoSemiCondensed-Bold.ttf"
 
 # ── Mappings métier (miroir exact du webapp) ────────────────────────────────
-BP_DOMAINE_MAP = {
-    "ELECTRICAL": "ELECTROMENAGER",
+# Domaines exclus (frais internes, pas des produits vendus)
+BP_DOMAINES_EXCLUS = {"FRAIS GENERAUX", ""}
+
+# Univers ILV par défaut selon le domaine (fallback si rayon pas mappé explicitement)
+BP_DOMAINE_UNIVERS_FALLBACK = {
+    "ELECTRICAL": "GEM/TV",
     "MEUBLE": "MEUBLE",
-    "DECORATION": "DECORATION",
+    "DECORATION": "DECO",
 }
 
 BP_FAMILLE_MAP = {
@@ -63,10 +67,18 @@ BP_FAMILLE_MAP = {
 }
 
 BP_RAYON_MAP = {
+    # ── Electrical ──
     "ELECTRICAL|CUISINIERE": "CUISINIERE",
     "ELECTRICAL|PEM - ASPI - AIR - FMO": "PEM (Petit Electromenager)",
     "ELECTRICAL|TV": "TV",
-    "ELECTRICAL|SON": None,
+    "ELECTRICAL|SON": "SON",
+    "ELECTRICAL|MULTIMEDIA": "TV",
+    "ELECTRICAL|NOUVELLES TECHNOLOGIES": "TV",
+    "ELECTRICAL|TELEPHONIE": "PEM (Petit Electromenager)",
+    "ELECTRICAL|ACCESSOIRES BLANC": "ACCESSOIRES ELEC",
+    "ELECTRICAL|ACCESSOIRES BRUN": "ACCESSOIRES ELEC",
+    "ELECTRICAL|ACCESSOIRES GRIS": "ACCESSOIRES ELEC",
+    # ── Meuble ──
     "MEUBLE|SIEGE": "SIEGE",
     "MEUBLE|CAC - LITS": "CAC (Canape/Convertible)",
     "MEUBLE|MEUBLES DE SEJOUR": "SEJOUR",
@@ -78,6 +90,8 @@ BP_RAYON_MAP = {
     "MEUBLE|ARMOIRE - DRESSING": "RANGEMENT",
     "MEUBLE|BUREAU": "SEJOUR",
     "MEUBLE|TABLE ET CHAISE": "SEJOUR",
+    "MEUBLE|OUTDOOR": "SEJOUR",
+    "MEUBLE|SDB": "SEJOUR",
     # ── Décoration ──
     "DECORATION|LUMINAIRE": "LUMINAIRE",
     "DECORATION|OBJET DE DECORATION": "DECO",
@@ -99,6 +113,7 @@ RAYON_TO_UNIVERS_ILV = {
     "LITERIE": "LITERIE", "LITERIE (Meuble)": "LITERIE",
     "SIEGE": "SIEGE", "CAC (Canape/Convertible)": "SIEGE",
     "LUMINAIRE": "DECO", "DECO": "DECO",
+    "SON": "GEM/TV", "ACCESSOIRES ELEC": "GEM/TV",
 }
 
 STRATEGIE_ILV = [
@@ -699,7 +714,8 @@ def parse_depliant(xlsx_path, prix_min=300.0):
 
     # Auto-détection ligne d'en-têtes (row 1 ou 2)
     headers_row1 = [str(c or "").strip() for c in next(ws.iter_rows(min_row=1, max_row=1, values_only=True))]
-    if "LIB PDTS" in headers_row1:
+    header_markers = {"LIB PDTS", "LIB_PRODUIT", "EAN_13", "DOMAINE", "LIB_DOMAINE"}
+    if header_markers & set(headers_row1):
         header_idx = 1
     else:
         headers_row1 = [str(c or "").strip() for c in next(ws.iter_rows(min_row=2, max_row=2, values_only=True))]
@@ -708,19 +724,23 @@ def parse_depliant(xlsx_path, prix_min=300.0):
     headers = headers_row1
     col = {h: i for i, h in enumerate(headers)}
 
-    def idx(name):
-        return col.get(name, -1)
+    def idx(*names):
+        """Retourne l'index de la première colonne trouvée parmi les noms."""
+        for name in names:
+            if name in col:
+                return col[name]
+        return -1
 
-    i_domaine = idx("DOMAINE")
-    i_rayon   = idx("RAYON")
-    i_famille = idx("FAMILLE")
+    i_domaine = idx("DOMAINE", "LIB_DOMAINE")
+    i_rayon   = idx("RAYON", "LIB_RAYON")
+    i_famille = idx("FAMILLE", "LIB_FAMILLE")
     i_ean     = idx("EAN_13")
-    i_lib     = idx("LIB PDTS")
-    i_gamme   = idx("GAMME")
-    i_debut   = idx("DEBUT")
-    i_fin     = idx("FIN")
-    i_pv_fdr  = idx("PV FDR")
-    i_pv_pub  = idx("PV PUB")
+    i_lib     = idx("LIB PDTS", "LIB_PRODUIT")
+    i_gamme   = idx("GAMME", "LIB_GAMME")
+    i_debut   = idx("DEBUT", "Date Début")
+    i_fin     = idx("FIN", "Date Fin")
+    i_pv_fdr  = idx("PV FDR", "Prix Fond de Rayon TTC")
+    i_pv_pub  = idx("PV PUB", "Prix PROMO")
 
     today = date.today()
     products = []
@@ -736,8 +756,16 @@ def parse_depliant(xlsx_path, prix_min=300.0):
         ean        = str(row[i_ean]     or "").strip() if i_ean     >= 0 else ""
         gamme      = str(row[i_gamme]   or "").strip() if i_gamme   >= 0 else ""
 
-        pv_pub = float(row[i_pv_pub]) if i_pv_pub >= 0 and row[i_pv_pub] else 0.0
-        pv_fdr = float(row[i_pv_fdr]) if i_pv_fdr >= 0 and row[i_pv_fdr] else 0.0
+        def _safe_float(val):
+            if val is None:
+                return 0.0
+            try:
+                return float(val)
+            except (ValueError, TypeError):
+                return 0.0
+
+        pv_pub = _safe_float(row[i_pv_pub]) if i_pv_pub >= 0 else 0.0
+        pv_fdr = _safe_float(row[i_pv_fdr]) if i_pv_fdr >= 0 else 0.0
 
         raw_debut = row[i_debut] if i_debut >= 0 else None
         raw_fin   = row[i_fin]   if i_fin   >= 0 else None
@@ -761,23 +789,22 @@ def parse_depliant(xlsx_path, prix_min=300.0):
         if prix < prix_min:
             continue
 
-        # Filtre domaine
-        domaine_info = BP_DOMAINE_MAP.get(domaine_bp)
-        if domaine_info is None and domaine_bp in BP_DOMAINE_MAP:
-            continue  # domaine mappé à None = exclu
-        if domaine_bp not in BP_DOMAINE_MAP:
-            continue  # domaine inconnu
+        # Filtre domaine — exclure uniquement les domaines internes
+        if domaine_bp in BP_DOMAINES_EXCLUS:
+            continue
 
-        # Mapping rayon ILV
+        # Mapping rayon ILV : d'abord mapping explicite, sinon fallback sur le nom du rayon
         fkey = f"{domaine_bp}|{rayon_bp}|{famille_bp}"
         rkey = f"{domaine_bp}|{rayon_bp}"
         rayon_ilv = BP_FAMILLE_MAP.get(fkey) or BP_RAYON_MAP.get(rkey)
         if rayon_ilv is None:
-            continue
+            # Fallback : utiliser le nom du rayon tel quel
+            rayon_ilv = rayon_bp or domaine_bp
 
+        # Univers ILV : d'abord mapping explicite, sinon fallback par domaine
         univers_ilv = RAYON_TO_UNIVERS_ILV.get(rayon_ilv)
         if not univers_ilv:
-            continue
+            univers_ilv = BP_DOMAINE_UNIVERS_FALLBACK.get(domaine_bp, "GEM/TV")
 
         products.append({
             "designation": designation, "ean": ean, "gamme": gamme,
