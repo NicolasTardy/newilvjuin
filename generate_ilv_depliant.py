@@ -175,13 +175,70 @@ TAUX_DEBITEUR = {
 TAEG_FICTIF_5X     = 8.44  # Mis à jour 04/05/2026
 TAUX_DEBITEUR_5X   = 8.13  # Mis à jour 04/05/2026
 
-ASSURANCE_TAUX_MENSUEL = {
-    20: 0.003646,
-    36: 0.002058,
-    48: 0.002772,
-    60: 0.002728,
-}
-TAEA_ASSURANCE = {20: "4,36", 36: "2,75", 48: "3,59", 60: "3,42"}
+# Table de surcharge assurance DIM (Décès, Invalidité, Maladie-Accident)
+# Source : feuille « Calcul » du fichier EASY PLV BUT, colonne X (DIM).
+# La surcharge s'applique SUR LA MENSUALITÉ (pas sur le capital).
+# Lookup par borne : on prend la borne ≤ durée la plus proche.
+ASSURANCE_DIM_BORNES = [
+    (12, 0.0286),
+    (19, 0.0341),
+    (25, 0.0374),
+    (37, 0.06407),
+    (49, 0.07519),
+    (61, 0.08393),
+    (73, 0.09031),
+    (85, 0.10318),
+]
+
+
+def _lookup_dim_rate(duree):
+    """Retourne le taux de surcharge DIM pour la durée donnée."""
+    rate = None
+    for borne, r in ASSURANCE_DIM_BORNES:
+        if duree >= borne:
+            rate = r
+        else:
+            break
+    return rate
+
+
+def calculer_assurance(mensualite, duree):
+    """Calcule l'assurance DIM : mensualité × taux surcharge DIM."""
+    dim_rate = _lookup_dim_rate(duree)
+    if dim_rate is None:
+        return None
+    ass_m = round(mensualite * dim_rate, 2)
+    ass_tot = round(ass_m * duree, 2)
+    return {"assurance_mensuelle": ass_m, "assurance_totale": ass_tot,
+            "dim_rate": dim_rate}
+
+
+def calculer_taea(montant_finance, duree, tdf_annuel, mensualite, assurance_m):
+    """Calcule le TAEA (Taux Annuel Effectif de l'Assurance) par méthode IRR.
+
+    TAEA = TAEG_avec_assurance − TAEG_sans_assurance  (définition réglementaire).
+    On résout chaque TAEG par Newton-Raphson sur l'équation de valeur actualisée.
+    """
+    def _solve_taeg(pmt, capital, n):
+        """Résout le TAEG mensuel par Newton (PV(pmt,r,n) = capital)."""
+        r = 0.01  # guess
+        for _ in range(200):
+            if r <= -1:
+                r = 0.001
+            rn = (1 + r) ** n
+            pv = pmt * (rn - 1) / (r * rn)
+            dpv = pmt * ((1 - rn + n * r * rn / (1 + r)) / (r * rn)
+                         - (rn - 1) * n / ((1 + r) * r * rn))
+            delta = pv - capital
+            if abs(delta) < 1e-8:
+                break
+            r -= delta / dpv
+        return (1 + r) ** 12 - 1  # TAEG annuel
+
+    taeg_sans = _solve_taeg(mensualite, montant_finance, duree)
+    taeg_avec = _solve_taeg(mensualite + assurance_m, montant_finance, duree)
+    taea = taeg_avec - taeg_sans
+    return round(taea * 100, 2)  # en %
 
 DATE_CONDITIONS = "01/04/2026"
 
@@ -424,14 +481,22 @@ def determiner_tranche(montant):
 
 
 def calculer_credit(duree, famille, montant_finance):
+    """Calcule la mensualité par la formule PMT exacte depuis le TDF (taux débiteur fixe).
+
+    Formule : mensualité = capital × r × (1+r)^n / ((1+r)^n − 1)
+    avec r = TDF / 12 (taux mensuel proportionnel).
+    Source de référence : fichier EASY PLV BUT (feuille « Calcul »).
+    """
     tranche = determiner_tranche(montant_finance)
     taeg = TAEG[duree][tranche]
-    if famille == "gratuit" or COEFF_MENSUELS[duree][tranche] is None:
+    if famille == "gratuit":
         mensualite = round(montant_finance / duree, 2)
         return {"mensualite": mensualite, "taeg": taeg, "cout_credit": 0,
                 "montant_total_du": montant_finance, "interets_rembourses": None}
-    coeff = COEFF_MENSUELS[duree][tranche]
-    mensualite = round(montant_finance * coeff, 2)
+    tdf = TAUX_DEBITEUR[duree][tranche] / 100  # ex: 14.10 → 0.141
+    r = tdf / 12  # taux mensuel proportionnel
+    factor = (1 + r) ** duree
+    mensualite = round(montant_finance * r * factor / (factor - 1), 2)
     montant_total_du = round(mensualite * duree, 2)
     cout_credit = round(montant_total_du - montant_finance, 2)
     interets_rembourses = cout_credit if famille == "ir" else None
@@ -925,9 +990,10 @@ def generer_ml_text(slug: str, duree: int, famille: str,
         return intro + exemple + " " + _CETELEM_B + " " + _BON_ACHAT + " " + _BUT_PUB
 
     if slug == "20x":
-        assurance_m  = round(montant_finance * ASSURANCE_TAUX_MENSUEL[duree], 2)
-        cout_gar     = round(assurance_m * duree, 2)
-        taea         = TAEA_ASSURANCE[duree]
+        ass = calculer_assurance(calc["mensualite"], duree)
+        taea_val = calculer_taea(montant_finance, duree, taux_deb / 100,
+                                 calc["mensualite"], ass["assurance_mensuelle"])
+        taea = f"{taea_val:.2f}".replace(".", ",")
         intro = (
             "Offre de credit accessoire a une vente de 320EUR a 25 000EUR sur une duree "
             "de 20 mois, pour un achat de 320EUR a 25 000EUR. Taux Annuel Effectif Global "
@@ -944,17 +1010,18 @@ def generer_ml_text(slug: str, duree: int, famille: str,
         assurance_para = (
             f" Le cout mensuel de l'assurance facultative Deces, Perte Totale et Irreversible "
             f"d'Autonomie, Maladie-Accident souscrite aupres de Cardif Assurances Vie et "
-            f"Cardif Assurances Risques Divers est de {fmt_ml(assurance_m)} EUR et s'ajoute "
+            f"Cardif Assurances Risques Divers est de {fmt_ml(ass['assurance_mensuelle'])} EUR et s'ajoute "
             f"au montant de la mensualite indique ci-dessus. Le cout total de cette assurance "
-            f"facultative est de {fmt_ml(cout_gar)} EUR. Le taux annuel effectif de cette "
+            f"facultative est de {fmt_ml(ass['assurance_totale'])} EUR. Le taux annuel effectif de cette "
             f"assurance (TAEA) est de {taea} %."
         )
         return intro + exemple + assurance_para + " " + _CETELEM_B + " " + _BON_ACHAT + " " + _BUT_PUB
 
     # 36x / 48x / 60x
-    assurance_m = round(montant_finance * ASSURANCE_TAUX_MENSUEL[duree], 2)
-    cout_gar    = round(assurance_m * duree, 2)
-    taea        = TAEA_ASSURANCE[duree]
+    ass = calculer_assurance(calc["mensualite"], duree)
+    taea_val = calculer_taea(montant_finance, duree, taux_deb / 100,
+                             calc["mensualite"], ass["assurance_mensuelle"])
+    taea = f"{taea_val:.2f}".replace(".", ",")
     taeg_max    = {"36x": "15,05", "48x": "15,05", "60x": "15,05"}[slug]
     montant_min = {"36x": "580", "48x": "770", "60x": "960"}[slug]
     intro = (
@@ -974,9 +1041,9 @@ def generer_ml_text(slug: str, duree: int, famille: str,
     assurance_para = (
         f" Le cout mensuel de l'assurance facultative Deces, Perte Totale et Irreversible "
         f"d'Autonomie, Maladie-Accident souscrite aupres de Cardif Assurances Vie et "
-        f"Cardif Assurances Risques Divers est de {fmt_ml(assurance_m)} EUR et s'ajoute "
+        f"Cardif Assurances Risques Divers est de {fmt_ml(ass['assurance_mensuelle'])} EUR et s'ajoute "
         f"au montant de la mensualite indique ci-dessus. Le cout total de cette assurance "
-        f"facultative est de {fmt_ml(cout_gar)} EUR. Le taux annuel effectif de cette "
+        f"facultative est de {fmt_ml(ass['assurance_totale'])} EUR. Le taux annuel effectif de cette "
         f"assurance (TAEA) est de {taea} %."
     )
     return intro + exemple + assurance_para + " " + _CETELEM_A + " " + _BUT_PUB
