@@ -203,7 +203,7 @@ def _generate_one(item: dict) -> list[tuple[str, bytes]]:
         gen.generate_a3_pdf(
             slug, variant, designation, calc,
             montant_finance, garantie_prix, livraison_prix,
-            duree, famille, a3_tpl_path, out_a3, ean=ean,
+            duree, famille, a3_tpl_path, out_a3, ean=ean, prix=prix,
         )
         results.append((fname_a3, out_a3.read_bytes()))
 

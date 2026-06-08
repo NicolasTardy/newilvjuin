@@ -1277,6 +1277,7 @@ def _identify_a3_field_roles(reader_page):
 _A3_ZONES = {
     "designation":     (90,  264, 487, 306),   # bulle de dialogue — auto-size largeur (agrandie)
     "ean":             (78,  312, 360, 340),   # code EAN, juste sous la désignation
+    "prix_produit":    (78,  342, 360, 365),   # prix produit hors services, sous le code EAN
     "mensu_int":       (50,  355, 414, 582),   # entier mensualité — auto-size (gros)
     "centimes":        (419, 492, 538, 583),   # centimes — taille fixe
     "prix_livraison":  (262, 783, 360, 807),   # prix livraison (gar_liv)
@@ -1354,7 +1355,7 @@ def _draw_at(page, font, text, x, baseline_y, size, color, max_w=None):
 
 def generate_a3_pdf(slug, variant, designation, calc, montant_finance,
                     garantie_prix, livraison_prix, duree, famille,
-                    template_path, output_path, ean=""):
+                    template_path, output_path, ean="", prix=0.0):
     """Génère un PDF A3 ILV — rendu fitz direct aux zones exactes des widgets.
 
     Layout (cf. maquette annotée client) :
@@ -1403,6 +1404,12 @@ def generate_a3_pdf(slug, variant, designation, calc, montant_finance,
     # Code EAN — sous la désignation, blanc sur fond rouge (toutes les ILV)
     if ean:
         _draw_fitted(page, font, f"EAN : {ean}", Z["ean"], _COL_WHITE,
+                     max_size=17, align="left")
+
+    # Prix produit (hors services) — sous le code EAN, blanc sur fond rouge
+    if prix > 0:
+        prix_str = fmt_ml(prix) + " €"  # ex: "259,98 €"
+        _draw_fitted(page, font, prix_str, Z["prix_produit"], _COL_WHITE,
                      max_size=17, align="left")
 
     # Mensualité ENTIER — grosse, blanche, fond rouge (auto-size pour remplir)
@@ -1782,6 +1789,7 @@ def main():
                         product_data["livraison"],
                         duree, famille,
                         a3_tpl_path, a3_output,
+                        ean=p.get("ean", ""), prix=p.get("prix", 0),
                     )
                     ok_a3 += 1
                 except Exception as e:
