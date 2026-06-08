@@ -438,10 +438,21 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
 // DATA & CONSTANTS
 // ============================================================
 
+// Domaines exclus (frais internes, pas des produits vendus)
+const BP_DOMAINES_EXCLUS = new Set(["FRAIS GENERAUX", ""]);
+
+// Mapping domaine BP → nom affiché (optionnel, fallback = nom brut)
 const BP_DOMAINE_MAP = {
   "ELECTRICAL": { domaine: "ELECTROMENAGER", univers: "Electromenager" },
   "MEUBLE": { domaine: "MEUBLE", univers: "Meubles" },
-  "DECORATION": null,
+  "DECORATION": { domaine: "DECORATION", univers: "Deco" },
+};
+
+// Univers ILV par défaut selon le domaine (fallback si rayon pas mappé explicitement)
+const BP_DOMAINE_UNIVERS_FALLBACK = {
+  "ELECTRICAL": "GEM/TV",
+  "MEUBLE": "MEUBLE",
+  "DECORATION": "DECO",
 };
 
 const BP_FAMILLE_MAP = {
@@ -468,7 +479,13 @@ const BP_RAYON_MAP = {
   "ELECTRICAL|CUISINIERE": "CUISINIERE",
   "ELECTRICAL|PEM - ASPI - AIR - FMO": "PEM (Petit Electromenager)",
   "ELECTRICAL|TV": "TV",
-  "ELECTRICAL|SON": null,
+  "ELECTRICAL|SON": "SON",
+  "ELECTRICAL|MULTIMEDIA": "TV",
+  "ELECTRICAL|NOUVELLES TECHNOLOGIES": "TV",
+  "ELECTRICAL|TELEPHONIE": "PEM (Petit Electromenager)",
+  "ELECTRICAL|ACCESSOIRES BLANC": "ACCESSOIRES ELEC",
+  "ELECTRICAL|ACCESSOIRES BRUN": "ACCESSOIRES ELEC",
+  "ELECTRICAL|ACCESSOIRES GRIS": "ACCESSOIRES ELEC",
   "MEUBLE|SIEGE": "SIEGE",
   "MEUBLE|CAC - LITS": "CAC (Canape/Convertible)",
   "MEUBLE|MEUBLES DE SEJOUR": "SEJOUR",
@@ -480,6 +497,8 @@ const BP_RAYON_MAP = {
   "MEUBLE|ARMOIRE - DRESSING": "RANGEMENT",
   "MEUBLE|BUREAU": "SEJOUR",
   "MEUBLE|TABLE ET CHAISE": "SEJOUR",
+  "MEUBLE|OUTDOOR": "SEJOUR",
+  "MEUBLE|SDB": "SEJOUR",
 };
 
 const RAYON_TO_UNIVERS_ILV = {
@@ -489,17 +508,18 @@ const RAYON_TO_UNIVERS_ILV = {
   "REFRIGERATEUR": "GEM/TV", "REFRIGERATEUR US": "GEM/TV", "COMBINE": "GEM/TV",
   "CONGELATEUR": "GEM/TV", "CUISINIERE": "GEM/TV", "TABLE DE CUISSON": "GEM/TV",
   "FOUR": "GEM/TV", "HOTTE": "GEM/TV", "CAVE A VIN": "GEM/TV", "CLIM": "GEM/TV", "TV": "GEM/TV",
+  "SON": "GEM/TV", "ACCESSOIRES ELEC": "GEM/TV",
   "SEJOUR": "MEUBLE", "RANGEMENT": "MEUBLE", "CUISINE (meuble)": "MEUBLE",
   "LITERIE": "LITERIE", "LITERIE (Meuble)": "LITERIE",
   "SIEGE": "SIEGE", "CAC (Canape/Convertible)": "SIEGE",
 };
 
 const STRATEGIE_ILV = [
-  { min:   80, max:  400,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "5x_sf"  },
-  { min:  400, max:  900,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "10x_ir" },
-  { min:  900, max: 1500,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "20x_ir" },
-  { min: 1500, max: 4000,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "36x_si" },
-  { min: 4000, max: 99999, univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], credit: "48x_si" },
+  { min:   80, max:  400,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], credit: "5x_sf"  },
+  { min:  400, max:  900,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], credit: "10x_ir" },
+  { min:  900, max: 1500,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], credit: "20x_ir" },
+  { min: 1500, max: 4000,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], credit: "36x_si" },
+  { min: 4000, max: 99999, univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], credit: "48x_si" },
 ];
 
 const COEFF_MENSUELS = {
@@ -959,12 +979,14 @@ function parseBaseArticles(data) {
     const designation = String(row[iLib]).trim();
     const gamme = iGamme >= 0 ? String(row[iGamme]).trim() : '';
 
-    // Map domaine
+    // Filtre domaine — exclure uniquement les domaines internes
+    if (BP_DOMAINES_EXCLUS.has(domaineBP)) continue;
+
+    // Nom affiché du domaine
     const domInfo = BP_DOMAINE_MAP[domaineBP];
-    if (domInfo === null) continue; // excluded (DECORATION)
     const domaine = domInfo ? domInfo.domaine : domaineBP;
 
-    // Map rayon (try famille first, then rayon)
+    // Mapping rayon ILV : d'abord mapping explicite famille, puis rayon, sinon fallback nom brut
     let rayonILV = null;
     const fKey = domaineBP + '|' + rayonBP + '|' + familleBP;
     if (BP_FAMILLE_MAP[fKey]) {
@@ -975,10 +997,16 @@ function parseBaseArticles(data) {
         rayonILV = BP_RAYON_MAP[rKey];
       }
     }
+    // Fallback : utiliser le nom du rayon BP tel quel (ou le domaine si pas de rayon)
+    if (rayonILV === null || rayonILV === undefined) {
+      rayonILV = rayonBP || domaineBP;
+    }
 
-    if (rayonILV === null) continue; // explicitly excluded
-
-    const universILV = rayonILV ? (RAYON_TO_UNIVERS_ILV[rayonILV] || null) : null;
+    // Univers ILV : d'abord mapping explicite, sinon fallback par domaine
+    let universILV = RAYON_TO_UNIVERS_ILV[rayonILV] || null;
+    if (!universILV) {
+      universILV = BP_DOMAINE_UNIVERS_FALLBACK[domaineBP] || 'GEM/TV';
+    }
 
     products.push({
       domaine, rayon: rayonBP, famille: familleBP, ean, designation, prix, rayonILV, universILV, gamme,
@@ -1068,10 +1096,12 @@ function parseDepliantArticles(data) {
     const gamme = iGamme >= 0 ? String(row[iGamme] || '').trim() : '';
     const media = row[iMedia];
 
+    // Filtre domaine — exclure uniquement les domaines internes
+    if (BP_DOMAINES_EXCLUS.has(domaineBP)) continue;
+
     // Map domaine + rayon ILV (réutilise les mêmes mappings que la base)
-    const domInfo = BP_DOMAINE_MAP[domaineBP];
-    if (domInfo === null) continue;
-    const domaine = domInfo ? domInfo.domaine : domaineBP;
+    const domInfo2 = BP_DOMAINE_MAP[domaineBP];
+    const domaine = domInfo2 ? domInfo2.domaine : domaineBP;
 
     let rayonILV = null;
     const fKey = domaineBP + '|' + rayonBP + '|' + familleBP;
@@ -1080,9 +1110,16 @@ function parseDepliantArticles(data) {
       const rKey = domaineBP + '|' + rayonBP;
       if (BP_RAYON_MAP[rKey] !== undefined) rayonILV = BP_RAYON_MAP[rKey];
     }
-    if (rayonILV === null) continue;
+    // Fallback : utiliser le nom du rayon BP tel quel
+    if (rayonILV === null || rayonILV === undefined) {
+      rayonILV = rayonBP || domaineBP;
+    }
 
-    const universILV = rayonILV ? (RAYON_TO_UNIVERS_ILV[rayonILV] || null) : null;
+    // Univers ILV : d'abord mapping explicite, sinon fallback par domaine
+    let universILV = RAYON_TO_UNIVERS_ILV[rayonILV] || null;
+    if (!universILV) {
+      universILV = BP_DOMAINE_UNIVERS_FALLBACK[domaineBP] || 'GEM/TV';
+    }
 
     depliantProducts.push({
       domaine, rayon: rayonBP, famille: familleBP, ean, designation, prix,
@@ -1649,6 +1686,7 @@ async function generateILVPython() {
         designation: p.designation,
         prix: p.prix,
         rayon_ilv: p.rayonILV || p.rayon || '',
+        univers_ilv: p.universILV || '',
         ean: p.ean || '',
         include_garantie: includeGar,
         garantie_prix: garantiePrix,
@@ -1727,7 +1765,7 @@ let manualWarAll = null;
 
 function populateDomaineDropdown() {
   const sel = document.getElementById('m-domaine');
-  const univSet = new Set(['PEM', 'GEM/TV', 'MEUBLE', 'LITERIE', 'SIEGE']);
+  const univSet = new Set(['PEM', 'GEM/TV', 'MEUBLE', 'LITERIE', 'SIEGE', 'DECO']);
   sel.innerHTML = '<option value="">-- S\u00E9lectionnez --</option>';
   univSet.forEach(u => {
     sel.innerHTML += '<option value="' + escH(u) + '">' + escH(u) + '</option>';
@@ -1860,6 +1898,7 @@ function previewManualProduct() {
     designation,
     prix,
     rayon_ilv: rayon,
+    univers_ilv: document.getElementById('m-domaine').value || '',
     include_garantie: garantie > 0,
     garantie_prix: garantie,
     include_livraison: livraison > 0,
@@ -1980,6 +2019,7 @@ async function generateCartPython() {
         designation:       item.designation,
         prix:              item.prix,
         rayon_ilv:         item.rayonILV || item.rayon || '',
+        univers_ilv:       item.universILV || '',
         ean:               item.ean || '',
         credit_key:        creditKey,
         include_garantie:  item.garantie > 0,

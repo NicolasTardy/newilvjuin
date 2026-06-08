@@ -137,7 +137,8 @@ def _generate_one(item: dict) -> list[tuple[str, bytes]]:
 
     univers_ilv = gen.RAYON_TO_UNIVERS_ILV.get(rayon_ilv)
     if not univers_ilv:
-        raise ValueError(f"Rayon ILV inconnu : «{rayon_ilv}»")
+        # Accepter l'univers passé par le frontend, sinon fallback GEM/TV
+        univers_ilv = str(item.get("univers_ilv", "")).strip() or "GEM/TV"
 
     if not credit_key:
         credit_key = gen.determine_credit(prix, univers_ilv)
