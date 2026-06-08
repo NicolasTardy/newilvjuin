@@ -979,14 +979,20 @@ def ajouter_ml_overlay(output_path: str, slug: str, ml_text: str) -> None:
     # Rectangle blanc pour masquer le texte ML statique existant
     page.draw_rect(rect, color=(1, 1, 1), fill=(1, 1, 1))
 
+    # Conversion Unicode → WinAnsi (CP1252) pour Helvetica built-in
+    ml_win = ml_text.replace("€", chr(0x80))    # € → CP1252 0x80
+    ml_win = ml_win.replace("–", chr(0x96)) # – (en-dash) → CP1252 0x96
+    ml_win = ml_win.replace(" ", " ")       # espace fine insécable → espace normale
+
     # Injection du texte ML dynamique
     rc = page.insert_textbox(
         rect,
-        ml_text,
+        ml_win,
         fontsize=5.4,
         fontname="helv",
         align=0,
         color=(0, 0, 0),
+        encoding=fitz.TEXT_ENCODING_LATIN,
     )
     if rc < 0:
         print(f"      ⚠ ML overflow ({slug}) : {abs(rc):.0f} pt non affiché")
@@ -1451,7 +1457,10 @@ def generate_a3_pdf(slug, variant, designation, calc, montant_finance,
     # On cherche la plus grande taille qui tient (≤9) sans déborder sur les logos.
     if ml_text:
         ml_zone = fitz.Rect(30, 982, 812, 1105)
-        ml_win = ml_text.replace("€", chr(0x80))   # € en WinAnsi pour Helvetica
+        # Conversion Unicode → WinAnsi (CP1252) pour Helvetica built-in
+        ml_win = ml_text.replace("€", chr(0x80))    # € → CP1252 0x80
+        ml_win = ml_win.replace("–", chr(0x96)) # – (en-dash) → CP1252 0x96
+        ml_win = ml_win.replace(" ", " ")       # espace fine insécable → espace normale
         for size in (9, 8.5, 8, 7.5, 7, 6.5, 6, 5.5, 5, 4.5):
             page.draw_rect(ml_zone, color=(1, 1, 1), fill=(1, 1, 1))  # effacer l'essai précédent
             rc = page.insert_textbox(ml_zone, ml_win, fontsize=size, fontname="helv",
