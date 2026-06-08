@@ -1187,19 +1187,19 @@ def _a3_compute_values(slug, variant, designation, calc, montant_finance,
     }
 
     if garantie_prix > 0:
+        gar_str = fmt_ml(garantie_prix)  # ex: "99,99" ou "109,99"
         if variant == "gar_liv":
-            # Pattern dans _A3_SERVICE_SPECS: "à000€" (sans espace pour 3 chiffres)
-            vals["garantie_fmt"] = "à" + str(int(garantie_prix)).zfill(3) + chr(0x80)
-            vals["gar_prix"] = str(int(garantie_prix)) + chr(0x80)
+            vals["garantie_fmt"] = "à" + gar_str + chr(0x80)
+            vals["gar_prix"] = gar_str + chr(0x80)
         elif variant == "gar":
-            vals["garantie_fmt"] = str(int(garantie_prix)) + chr(0x80)
-            vals["gar_prix"] = str(int(garantie_prix)) + chr(0x80)
+            vals["garantie_fmt"] = gar_str + chr(0x80)
+            vals["gar_prix"] = gar_str + chr(0x80)
 
     # Livraison : pour variante "gar" ET "gar_liv"
     if livraison_prix > 0 and variant in ("gar", "gar_liv"):
-        # Pattern dans _A3_SERVICE_SPECS: "à 00€" (avec espace pour 2 chiffres)
-        vals["livraison_fmt"] = "à " + str(int(livraison_prix)).zfill(2) + chr(0x80)
-        vals["liv_prix"] = str(int(livraison_prix)) + chr(0x80)
+        liv_str = fmt_ml(livraison_prix)  # ex: "39,00" ou "79,00"
+        vals["livraison_fmt"] = "à " + liv_str + chr(0x80)
+        vals["liv_prix"] = liv_str + chr(0x80)
 
     if slug in ("10x", "20x") and calc.get("interets_rembourses") is not None:
         vals["ir_badge_str"] = str(int(round(calc["interets_rembourses"])))
