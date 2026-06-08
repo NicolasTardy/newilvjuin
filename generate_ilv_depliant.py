@@ -39,7 +39,7 @@ ARCHIVO_BOLD_TTF = FONTS_DIR / "ArchivoSemiCondensed-Bold.ttf"
 BP_DOMAINE_MAP = {
     "ELECTRICAL": "ELECTROMENAGER",
     "MEUBLE": "MEUBLE",
-    "DECORATION": None,  # exclu
+    "DECORATION": "DECORATION",
 }
 
 BP_FAMILLE_MAP = {
@@ -78,6 +78,13 @@ BP_RAYON_MAP = {
     "MEUBLE|ARMOIRE - DRESSING": "RANGEMENT",
     "MEUBLE|BUREAU": "SEJOUR",
     "MEUBLE|TABLE ET CHAISE": "SEJOUR",
+    # ── Décoration ──
+    "DECORATION|LUMINAIRE": "LUMINAIRE",
+    "DECORATION|OBJET DE DECORATION": "DECO",
+    "DECORATION|TAPIS": "DECO",
+    "DECORATION|TEXTILE JOUR": "DECO",
+    "DECORATION|TEXTILE NUIT": "DECO",
+    "DECORATION|UTILITAIRE": "DECO",
 }
 
 RAYON_TO_UNIVERS_ILV = {
@@ -91,14 +98,15 @@ RAYON_TO_UNIVERS_ILV = {
     "SEJOUR": "MEUBLE", "RANGEMENT": "MEUBLE", "CUISINE (meuble)": "MEUBLE",
     "LITERIE": "LITERIE", "LITERIE (Meuble)": "LITERIE",
     "SIEGE": "SIEGE", "CAC (Canape/Convertible)": "SIEGE",
+    "LUMINAIRE": "DECO", "DECO": "DECO",
 }
 
 STRATEGIE_ILV = [
-    {"min":   80, "max":  400,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], "credit": "5x_sf"},
-    {"min":  400, "max":  900,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], "credit": "10x_ir"},
-    {"min":  900, "max": 1500,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], "credit": "20x_ir"},
-    {"min": 1500, "max": 4000,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], "credit": "36x_si"},
-    {"min": 4000, "max": 99999, "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE"], "credit": "48x_si"},
+    {"min":   80, "max":  400,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], "credit": "5x_sf"},
+    {"min":  400, "max":  900,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], "credit": "10x_ir"},
+    {"min":  900, "max": 1500,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], "credit": "20x_ir"},
+    {"min": 1500, "max": 4000,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], "credit": "36x_si"},
+    {"min": 4000, "max": 99999, "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], "credit": "48x_si"},
 ]
 
 CREDIT_TYPES = {
@@ -756,9 +764,9 @@ def parse_depliant(xlsx_path, prix_min=300.0):
         # Filtre domaine
         domaine_info = BP_DOMAINE_MAP.get(domaine_bp)
         if domaine_info is None and domaine_bp in BP_DOMAINE_MAP:
-            continue  # exclu (DECORATION)
+            continue  # domaine mappé à None = exclu
         if domaine_bp not in BP_DOMAINE_MAP:
-            continue  # inconnu
+            continue  # domaine inconnu
 
         # Mapping rayon ILV
         fkey = f"{domaine_bp}|{rayon_bp}|{famille_bp}"
