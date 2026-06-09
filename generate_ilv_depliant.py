@@ -1293,12 +1293,13 @@ def _a3_compute_values(slug, variant, designation, calc, montant_finance,
             "ml_total_du":   feur(calc["montant_total_du"]),
         })
         if slug in ("20x", "36x", "48x", "60x"):
-            ass_m   = round(montant_finance * ASSURANCE_TAUX_MENSUEL[duree], 2)
-            ass_tot = round(ass_m * duree, 2)
-            taea_v  = float(TAEA_ASSURANCE[duree].replace(",", "."))
+            ass = calculer_assurance(calc["mensualite"], duree)
+            tdb = TAUX_DEBITEUR[duree][determiner_tranche(montant_finance)]
+            taea_v = calculer_taea(montant_finance, duree, tdb / 100,
+                                   calc["mensualite"], ass["assurance_mensuelle"])
             vals.update({
-                "ml_assurance_m":     feur(ass_m),
-                "ml_assurance_total": feur(ass_tot),
+                "ml_assurance_m":     feur(ass["assurance_mensuelle"]),
+                "ml_assurance_total": feur(ass["assurance_totale"]),
                 "ml_taea":            fpct(taea_v),
             })
 
