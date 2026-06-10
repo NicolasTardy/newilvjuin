@@ -1432,7 +1432,7 @@ _A3_ZONES = {
     "prix_livraison":  (262, 783, 360, 807),   # prix livraison (gar_liv)
     "prix_garantie_gl":(719, 782, 815, 806),   # prix garantie (gar_liv)
     "prix_garantie_g": (505, 741, 625, 770),   # prix garantie (gar seule)
-    "badge_ir":        (580, 185, 760, 240),   # badge intérêts remboursés (10x,20x) — centré dans le cercle blanc
+    "badge_ir":        (610, 185, 722, 240),   # badge intérêts remboursés (10x,20x) — intérieur du cercle
 }
 
 # Baselines fixes pour les valeurs alignées sur un label statique (size, x, baseline_y)
@@ -1587,15 +1587,14 @@ def generate_a3_pdf(slug, variant, designation, calc, montant_finance,
         s = F["gar_g"]
         _draw_at(page, font, gar_prix, s["x"], s["baseline"], s["size"], _COL_RED, s["max_w"])
 
-    # Badge IR (10x, 20x) — montant + € en ROUGE, centré dans le cercle blanc.
+    # Badge IR (10x, 20x) — le nombre en ROUGE dans le cercle blanc, le « € » est statique.
+    # On affiche les décimales quand elles existent (précision : ex. 244,42 et non 244).
     if slug in ("10x", "20x") and interets and interets > 0:
-        # Masquer le « € » statique du template (bbox=[732, 187, 747, 235])
-        page.draw_rect(fitz.Rect(728, 185, 750, 240), color=None, fill=(1, 1, 1))
         cents = int(round((interets - int(interets)) * 100))
         badge_num = f"{int(interets)}" if cents == 0 else f"{int(interets)},{cents:02d}"
-        badge_text = badge_num + " €"
-        _draw_fitted(page, font, badge_text, Z["badge_ir"], _COL_RED,
-                     max_size=52, align="center", fill_h=1.0)
+        # Cercle blanc : nombre rouge, aligné à droite juste avant le « € » statique (x≈732)
+        _draw_fitted(page, font, badge_num, Z["badge_ir"], _COL_RED,
+                     max_size=58, align="right", fill_h=1.0)
 
     # Mentions légales — boîte du bas, AU-DESSUS des logos BUT/Cetelem (y=1111).
     # On cherche la plus grande taille qui tient (≤9) sans déborder sur les logos.
