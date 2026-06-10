@@ -1773,8 +1773,11 @@ function onEanSelect() {
   document.getElementById('ean-garantie-prix-display').textContent = formatPrixService(pickGarantie(selectedEanWarAll, defaultLevel));
   // Setup livraison options based on available types
   refreshEanLivOptions();
-  // Reset checkboxes : garantie cochée par défaut si dispo, livraison décochée
-  document.getElementById('ean-include-gar').checked = (defaultLevel > 0 && pickGarantie(selectedEanWarAll, defaultLevel) > 0);
+  // Reset checkboxes : garantie cochée par défaut seulement pour 20x et au-dessus
+  const eanDefaultCredit = determineDefaultCredit(p.prix, p.universILV);
+  const garAvailable = (defaultLevel > 0 && pickGarantie(selectedEanWarAll, defaultLevel) > 0);
+  const garDefaultChecked = garAvailable && eanDefaultCredit && !eanDefaultCredit.startsWith('5x') && !eanDefaultCredit.startsWith('10x');
+  document.getElementById('ean-include-gar').checked = garDefaultChecked;
   document.getElementById('ean-include-liv').checked = false;
   refreshLivraisonUI();
   refreshGarantieUI();
@@ -2617,7 +2620,8 @@ async function generateBatchILV() {
 
     const ct = CREDIT_TYPES[creditKey];
     const warAll = lookupWarrantyAll(p.universILV, p.rayonILV, p.prix);
-    const garantie = pickGarantie(warAll, garLevel);
+    const batchGarInclude = !creditKey.startsWith('5x') && !creditKey.startsWith('10x');
+    const garantie = batchGarInclude ? pickGarantie(warAll, garLevel) : 0;
     const livraison = warAll.livDom > 0 ? warAll.livDom : (warAll.livPdP > 0 ? warAll.livPdP : 0);
 
     const item = {
@@ -2633,7 +2637,7 @@ async function generateBatchILV() {
       includeLiv
     };
 
-    // Variante UNIQUE selon les options sélectionnées (plus de déclinaisons multiples)
+    // Variante UNIQUE selon les options sélectionnées
     let variant = 'sans';
     if (garantie > 0 && includeLiv && livraison > 0) variant = 'gar_liv';
     else if (garantie > 0) variant = 'gar';

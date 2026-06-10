@@ -370,16 +370,17 @@ def admin_generate_from_excel():
                 skipped.append(f"row {row}: pas de crédit pour {prix}€ / {univers_ilv}")
                 continue
 
-            # Lookup warranty
+            # Lookup warranty — incluse par défaut seulement à partir du 20x
             war = gen.lookup_warranty_all(rayon_ilv, prix)
             gar_prix = 0
-            if gar_level == 2 and war["gar2"] > 0:
-                gar_prix = war["gar2"]
-            elif gar_level == 1 and war["gar1"] > 0:
-                gar_prix = war["gar1"]
-            elif gar_level == 2 and war["gar1"] > 0:
-                # Fallback: 3★ demandée mais indispo → 1★
-                gar_prix = war["gar1"]
+            gar_default = not credit_key.startswith("5x") and not credit_key.startswith("10x")
+            if gar_default:
+                if gar_level == 2 and war["gar2"] > 0:
+                    gar_prix = war["gar2"]
+                elif gar_level == 1 and war["gar1"] > 0:
+                    gar_prix = war["gar1"]
+                elif gar_level == 2 and war["gar1"] > 0:
+                    gar_prix = war["gar1"]
 
             # Build item for _generate_one (warranty only, no livraison)
             item = {
