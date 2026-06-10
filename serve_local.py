@@ -268,6 +268,166 @@ def generate_ilv_preview():
                      download_name=fname)
 
 
+# ── API admin : génération auto depuis Excel ──────────────────────────────────
+
+@app.post("/api/admin/generate-from-excel")
+def admin_generate_from_excel():
+    """Upload an Excel file → auto-generate ILVs with warranty, no delivery."""
+    if gen is None:
+        return jsonify(error="Module de génération non disponible"), 503
+    _check_auth()
+
+    if "file" not in request.files:
+        return jsonify(error="Fichier Excel requis"), 400
+    f = request.files["file"]
+
+    try:
+        import openpyxl
+    except ImportError:
+        return jsonify(error="openpyxl non installé sur le serveur"), 500
+
+    try:
+        wb = openpyxl.load_workbook(f, data_only=True)
+    except Exception as e:
+        return jsonify(error=f"Impossible de lire le fichier Excel : {e}"), 400
+
+    # Find the data sheet (first non-Synthèse sheet, or active)
+    ws = None
+    for name in wb.sheetnames:
+        if name.lower() != "synthèse":
+            ws = wb[name]
+            break
+    if ws is None:
+        ws = wb.active
+
+    # Detect columns by header
+    headers = {}
+    for col in range(1, ws.max_column + 1):
+        h = str(ws.cell(1, col).value or "").strip()
+        headers[h] = col
+
+    col_famille = headers.get("LIB_FAMILLE")
+    col_ean     = headers.get("EAN_13")
+    col_nom     = headers.get("LIB_PRODUIT")
+    col_pvd     = headers.get("Prix de Vente à Date du produit TTC")
+    col_domaine = headers.get("LIB_DOMAINE")
+    col_rayon   = headers.get("LIB_RAYON")
+
+    if not col_nom or not col_pvd:
+        return jsonify(error="Colonnes LIB_PRODUIT et Prix de Vente à Date du produit TTC requises"), 400
+
+    # Parse request options
+    gar_level = int(request.form.get("gar_level", "2"))  # default 3 étoiles
+
+    import sys
+    print(f"[admin-excel] Processing {ws.max_row - 1} rows, gar_level={gar_level}", flush=True)
+
+    buf = io.BytesIO()
+    errors = []
+    skipped = []
+    count = 0
+
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for row in range(2, ws.max_row + 1):
+            famille_excel = str(ws.cell(row, col_famille).value or "").strip() if col_famille else ""
+            ean_raw       = ws.cell(row, col_ean).value if col_ean else None
+            designation   = str(ws.cell(row, col_nom).value or "").strip()
+            prix_raw      = ws.cell(row, col_pvd).value
+
+            if not designation or not prix_raw:
+                continue
+            try:
+                prix = float(prix_raw)
+            except (ValueError, TypeError):
+                continue
+            if prix <= 0:
+                continue
+
+            # EAN normalization
+            if ean_raw is not None:
+                ean = str(int(ean_raw)) if isinstance(ean_raw, float) else str(ean_raw).strip()
+            else:
+                ean = ""
+
+            # Map famille Excel → rayonILV
+            rayon_ilv = gen.EXCEL_FAMILLE_TO_RAYON_ILV.get(famille_excel, "")
+            if not rayon_ilv:
+                # Fallback: try rayon Excel
+                rayon_excel = str(ws.cell(row, col_rayon).value or "").strip() if col_rayon else ""
+                rayon_ilv = gen.EXCEL_FAMILLE_TO_RAYON_ILV.get(rayon_excel, "")
+            if not rayon_ilv:
+                skipped.append(f"row {row}: famille '{famille_excel}' non mappée")
+                continue
+
+            univers_ilv = gen.RAYON_TO_UNIVERS_ILV.get(rayon_ilv, "")
+            if not univers_ilv:
+                skipped.append(f"row {row}: rayon '{rayon_ilv}' sans univers")
+                continue
+
+            # Determine credit type
+            credit_key = gen.determine_credit(prix, univers_ilv)
+            if not credit_key:
+                skipped.append(f"row {row}: pas de crédit pour {prix}€ / {univers_ilv}")
+                continue
+
+            # Lookup warranty
+            war = gen.lookup_warranty_all(rayon_ilv, prix)
+            gar_prix = 0
+            if gar_level == 2 and war["gar2"] > 0:
+                gar_prix = war["gar2"]
+            elif gar_level == 1 and war["gar1"] > 0:
+                gar_prix = war["gar1"]
+            elif gar_level == 2 and war["gar1"] > 0:
+                # Fallback: 3★ demandée mais indispo → 1★
+                gar_prix = war["gar1"]
+
+            # Build item for _generate_one (warranty only, no livraison)
+            item = {
+                "designation":       designation,
+                "prix":              prix,
+                "rayon_ilv":         rayon_ilv,
+                "univers_ilv":       univers_ilv,
+                "ean":               ean,
+                "credit_key":        credit_key,
+                "include_garantie":  gar_prix > 0,
+                "garantie_prix":     gar_prix,
+                "include_livraison": False,
+                "livraison_prix":    0,
+            }
+
+            try:
+                files = _generate_one(item)
+                for fname, data in files:
+                    zf.writestr(fname, data)
+                    count += 1
+            except Exception as e:
+                errors.append(f"{ean or designation[:20]}: {e}")
+
+    print(f"[admin-excel] Done: {count} PDFs, {len(errors)} erreurs, {len(skipped)} skipped", flush=True)
+    if skipped:
+        for s in skipped[:10]:
+            print(f"  SKIP: {s}", flush=True)
+
+    if count == 0:
+        msg = "Aucun PDF généré"
+        if errors:
+            msg += " — " + "; ".join(errors[:5])
+        if skipped:
+            msg += f" ({len(skipped)} produits non mappés)"
+        return jsonify(error=msg), 500
+
+    buf.seek(0)
+    ts = datetime.now().strftime("%Y%m%d_%H%M")
+    resp = send_file(buf, mimetype="application/zip",
+                     as_attachment=True,
+                     download_name=f"ILV_Excel_{ts}.zip")
+    resp.headers["X-ILV-Count"] = str(count)
+    resp.headers["X-ILV-Skipped"] = str(len(skipped))
+    resp.headers["X-ILV-Errors"] = json.dumps(errors[:20], ensure_ascii=False) if errors else "[]"
+    resp.headers["Access-Control-Expose-Headers"] = "X-ILV-Count, X-ILV-Skipped, X-ILV-Errors"
+    return resp
+
+
 # ── API génération panier (batch) ──────────────────────────────────────────────
 
 @app.post("/api/generate-ilv-batch")

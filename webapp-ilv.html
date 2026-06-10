@@ -191,6 +191,35 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
       <div id="admin-status" style="font-size:13px;margin-top:10px;text-align:center;display:none;"></div>
     </div>
     <div class="panel">
+      <h2>G&eacute;n&eacute;ration auto depuis Excel</h2>
+      <p style="font-size:12px;color:#888;margin-bottom:14px;">
+        Uploadez un fichier Excel (ex. Produits prix &eacute;volu&eacute;s) pour g&eacute;n&eacute;rer automatiquement les ILV de tous les produits.<br>
+        <b>Garantie incluse, pas de livraison.</b> Le type de cr&eacute;dit est d&eacute;termin&eacute; automatiquement par tranche de prix.
+      </p>
+      <div class="upload-zone" id="uz-excel-gen" onclick="document.getElementById('file-excel-gen').click()">
+        <input type="file" id="file-excel-gen" accept=".xlsx,.xls" onchange="onExcelGenFileChange()">
+        <div class="uz-label">&#128202; Fichier Excel produits (.xlsx)</div>
+        <div class="uz-name" id="uz-excel-gen-name">Aucun fichier</div>
+      </div>
+      <div style="margin-top:10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+        <div>
+          <label style="color:#999;font-size:12px;">Niveau de garantie</label>
+          <select id="excel-gen-gar-level" style="margin-left:6px;">
+            <option value="2" selected>&#9733;&#9733;&#9733; 3 &eacute;toiles</option>
+            <option value="1">&#9733; 1 &eacute;toile</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" id="btn-excel-gen" disabled onclick="adminExcelGenerate()" style="background:#27ae60;">&#8659; G&eacute;n&eacute;rer les ILV</button>
+      </div>
+      <div id="excel-gen-status" style="font-size:13px;margin-top:10px;text-align:center;display:none;"></div>
+      <div id="excel-gen-progress" style="display:none;margin-top:10px;">
+        <div style="background:#333;border-radius:4px;height:8px;overflow:hidden;">
+          <div id="excel-gen-progress-fill" style="background:#27ae60;height:100%;width:0%;transition:width .3s;"></div>
+        </div>
+        <p id="excel-gen-progress-text" style="font-size:11px;color:#888;text-align:center;margin-top:4px;"></p>
+      </div>
+    </div>
+    <div class="panel">
       <h2>Base actuelle</h2>
       <p id="admin-current-info" style="color:#888;font-size:13px;">V&eacute;rification...</p>
     </div>
@@ -905,6 +934,96 @@ function readFileAsArrayBuffer(file) {
     r.onerror = () => reject(r.error);
     r.readAsArrayBuffer(file);
   });
+}
+
+// ── Admin : génération auto depuis Excel ────────────────────────────────────
+function onExcelGenFileChange() {
+  const file = document.getElementById('file-excel-gen').files[0];
+  const nameEl = document.getElementById('uz-excel-gen-name');
+  const btn = document.getElementById('btn-excel-gen');
+  const zone = document.getElementById('uz-excel-gen');
+  if (file) {
+    nameEl.textContent = file.name;
+    zone.classList.add('has-file');
+    btn.disabled = false;
+  } else {
+    nameEl.textContent = 'Aucun fichier';
+    zone.classList.remove('has-file');
+    btn.disabled = true;
+  }
+}
+
+async function adminExcelGenerate() {
+  const file = document.getElementById('file-excel-gen').files[0];
+  if (!file) { alert('Sélectionnez un fichier Excel.'); return; }
+
+  const password = document.getElementById('admin-password').value;
+  const garLevel = document.getElementById('excel-gen-gar-level').value;
+  const statusEl = document.getElementById('excel-gen-status');
+  const progressEl = document.getElementById('excel-gen-progress');
+  const btn = document.getElementById('btn-excel-gen');
+
+  statusEl.style.display = 'block';
+  statusEl.style.color = '#999';
+  statusEl.textContent = 'Envoi du fichier et génération en cours…';
+  progressEl.style.display = 'block';
+  document.getElementById('excel-gen-progress-fill').style.width = '30%';
+  document.getElementById('excel-gen-progress-text').textContent = 'Traitement côté serveur…';
+  btn.disabled = true;
+  btn.textContent = 'Génération…';
+
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('gar_level', garLevel);
+
+    const resp = await fetch('/api/admin/generate-from-excel', {
+      method: 'POST',
+      headers: { 'X-Admin-Password': password },
+      body: formData
+    });
+
+    document.getElementById('excel-gen-progress-fill').style.width = '90%';
+
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: resp.statusText }));
+      throw new Error(err.error || resp.statusText);
+    }
+
+    const count = resp.headers.get('X-ILV-Count') || '?';
+    const skipped = resp.headers.get('X-ILV-Skipped') || '0';
+    const errorsHeader = resp.headers.get('X-ILV-Errors');
+    let errList = [];
+    try { errList = JSON.parse(errorsHeader || '[]'); } catch(e) {}
+
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'ILV_Excel_' + new Date().toISOString().slice(0,10) + '.zip';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    document.getElementById('excel-gen-progress-fill').style.width = '100%';
+    statusEl.style.color = '#27ae60';
+    let msg = count + ' ILV générées avec succès !';
+    if (parseInt(skipped) > 0) msg += ' (' + skipped + ' produits non mappés)';
+    if (errList.length > 0) msg += ' · ' + errList.length + ' erreurs';
+    statusEl.textContent = msg;
+    document.getElementById('excel-gen-progress-text').textContent = 'Terminé — ZIP téléchargé';
+
+  } catch(e) {
+    statusEl.style.color = '#e74c3c';
+    statusEl.textContent = 'Erreur : ' + e.message;
+    document.getElementById('excel-gen-progress-fill').style.width = '0%';
+    document.getElementById('excel-gen-progress-text').textContent = '';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⇓ Générer les ILV';
+    setTimeout(() => { progressEl.style.display = 'none'; }, 5000);
+  }
 }
 
 // Launch
