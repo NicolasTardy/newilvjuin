@@ -292,14 +292,34 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
           </div>
 
           <!-- LIVRAISON -->
-          <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;background:#1a2740;border-radius:5px;">
-            <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:700;color:#eee;margin:0;flex:1;">
-              <input type="checkbox" id="ean-include-liv" onchange="onIncludeLivraisonChange()" style="width:18px;height:18px;cursor:pointer;">
-              Livraison
-            </label>
-            <span style="font-size:13px;color:#a8e6c1;font-weight:700;white-space:nowrap;">
-              <span id="ean-livraison-prix">0,00&euro;</span>
-            </span>
+          <div style="padding:8px 10px;background:#1a2740;border-radius:5px;">
+            <div style="display:flex;align-items:center;gap:10px;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;font-weight:700;color:#eee;margin:0;">
+                <input type="checkbox" id="ean-include-liv" onchange="onIncludeLivraisonChange()" style="width:18px;height:18px;cursor:pointer;">
+                Livraison
+              </label>
+              <div id="ean-liv-options" style="flex:1;display:flex;align-items:center;gap:10px;opacity:.4;pointer-events:none;">
+                <select id="ean-liv-type" onchange="onLivTypeChange()" style="flex:1;">
+                  <option value="dom">Domicile</option>
+                  <option value="pdp">Pas de porte</option>
+                  <option value="ensPdP" style="display:none;">Ensemble Pas de porte</option>
+                  <option value="ensDom" style="display:none;">Ensemble Domicile</option>
+                </select>
+                <span style="font-size:13px;color:#a8e6c1;font-weight:700;white-space:nowrap;">
+                  <span id="ean-livraison-prix">0,00&euro;</span>
+                </span>
+              </div>
+            </div>
+            <!-- MONTAGE -->
+            <div id="ean-montage-row" style="display:none;margin-top:6px;align-items:center;gap:10px;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:#ccc;margin:0;">
+                <input type="checkbox" id="ean-include-montage" onchange="onIncludeMontageChange()" style="width:16px;height:16px;cursor:pointer;">
+                Montage
+              </label>
+              <span style="font-size:12px;color:#a8e6c1;font-weight:700;white-space:nowrap;">
+                <span id="ean-montage-prix">0,00&euro;</span>
+              </span>
+            </div>
           </div>
         </div>
         <div style="margin-top:10px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
@@ -334,13 +354,23 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
           </select>
         </div>
         <div style="max-width:120px;"><label>Garantie</label><input type="number" id="m-garantie" step="0.01" min="0" value="0"></div>
-        <div style="max-width:160px;">
+        <div style="max-width:240px;">
           <label>Livraison</label>
-          <div style="display:flex;align-items:center;gap:8px;">
-            <label class="cb-inline"><input type="checkbox" id="m-include-liv"> Inclure</label>
-            <span id="m-livraison-display" style="font-size:12px;color:#999;">0,00&euro;</span>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <label class="cb-inline"><input type="checkbox" id="m-include-liv" onchange="onManualLivChange()"> Inclure</label>
+            <select id="m-liv-type" onchange="onManualLivTypeChange()" style="flex:1;font-size:11px;" disabled>
+              <option value="dom">Domicile</option>
+              <option value="pdp">Pas de porte</option>
+              <option value="ensPdP" style="display:none;">Ens. PdP</option>
+              <option value="ensDom" style="display:none;">Ens. Dom</option>
+            </select>
+            <span id="m-livraison-display" style="font-size:12px;color:#999;white-space:nowrap;">0,00&euro;</span>
           </div>
           <input type="hidden" id="m-livraison" value="0">
+          <div id="m-montage-row" style="display:none;margin-top:4px;">
+            <label class="cb-inline" style="font-size:11px;"><input type="checkbox" id="m-include-montage"> Montage</label>
+            <span id="m-montage-display" style="font-size:11px;color:#999;">0,00&euro;</span>
+          </div>
         </div>
       </div>
       <div style="margin-top:8px;"><button class="btn btn-secondary" onclick="addManualProduct()">Ajouter au panier</button> <button class="btn btn-primary" onclick="previewManualProduct()" style="margin-left:8px;">👁️ Aperçu</button></div>
@@ -1134,42 +1164,45 @@ function parseDepliantArticles(data) {
 
 // ============================================================
 // SIMULATEUR TARIFS SERVICES — EMBEDDED DATA
-// Format: [univers, famille, prixMin, prixMax, gar1, gar2, gar3, liv]
+// Format: [univers, famille, prixMin, prixMax, gar1, gar2, gar3,
+//          livPdP, livDom, montage, livEnsPdP, livEnsDom]
 // gar values: 0 = not available, -1 = monthly subscription (excluded)
 // ============================================================
 const SIM_RAW = [
-["Electromenager","LAVE-LINGE",0,150,39.99,49.99,-1,39],["Electromenager","LAVE-LINGE",150,250,69.99,79.99,-1,39],["Electromenager","LAVE-LINGE",250,400,89.99,99.99,-1,39],["Electromenager","LAVE-LINGE",400,450,99.99,109.99,-1,39],["Electromenager","LAVE-LINGE",450,550,119.99,129.99,-1,39],["Electromenager","LAVE-LINGE",550,99999999,139.99,149.99,-1,39],
-["Electromenager","REFRIGERATEUR",0,150,19.99,29.99,-1,39],["Electromenager","REFRIGERATEUR",150,250,39.99,49.99,-1,39],["Electromenager","REFRIGERATEUR",250,300,59.99,69.99,-1,39],["Electromenager","REFRIGERATEUR",300,400,69.99,79.99,-1,39],["Electromenager","REFRIGERATEUR",400,500,89.99,99.99,-1,39],["Electromenager","REFRIGERATEUR",500,600,109.99,119.99,-1,39],["Electromenager","REFRIGERATEUR",600,750,129.99,139.99,-1,39],["Electromenager","REFRIGERATEUR",750,99999999,139.99,149.99,-1,39],
-["Electromenager","REFRIGERATEUR US",0,900,139.99,149.99,-1,79],["Electromenager","REFRIGERATEUR US",900,950,159.99,169.99,-1,79],["Electromenager","REFRIGERATEUR US",950,1000,189.99,199.99,-1,79],["Electromenager","REFRIGERATEUR US",1000,99999999,219.99,229.99,-1,79],
-["Electromenager","SECHE-LINGE",0,250,69.99,79.99,-1,39],["Electromenager","SECHE-LINGE",250,350,79.99,89.99,-1,39],["Electromenager","SECHE-LINGE",350,450,109.99,119.99,-1,39],["Electromenager","SECHE-LINGE",450,500,119.99,129.99,-1,39],["Electromenager","SECHE-LINGE",500,99999999,129.99,139.99,-1,39],
-["Electromenager","COMBINE",0,200,29.99,39.99,-1,39],["Electromenager","COMBINE",200,300,69.99,79.99,-1,39],["Electromenager","COMBINE",300,400,79.99,89.99,-1,39],["Electromenager","COMBINE",400,600,109.99,119.99,-1,39],["Electromenager","COMBINE",600,850,119.99,129.99,-1,39],["Electromenager","COMBINE",850,99999999,139.99,149.99,-1,39],
-["Electromenager","CONGELATEUR",0,200,39.99,49.99,-1,39],["Electromenager","CONGELATEUR",200,350,59.99,69.99,-1,39],["Electromenager","CONGELATEUR",350,500,89.99,99.99,-1,39],["Electromenager","CONGELATEUR",500,900,119.99,129.99,-1,39],["Electromenager","CONGELATEUR",900,99999999,139.99,149.99,-1,39],
-["Electromenager","LAVE-VAISSELLE",0,100,39.99,49.99,-1,39],["Electromenager","LAVE-VAISSELLE",100,150,59.99,69.99,-1,39],["Electromenager","LAVE-VAISSELLE",150,200,79.99,89.99,-1,39],["Electromenager","LAVE-VAISSELLE",200,300,89.99,99.99,-1,39],["Electromenager","LAVE-VAISSELLE",300,400,99.99,109.99,-1,39],["Electromenager","LAVE-VAISSELLE",400,450,109.99,119.99,-1,39],["Electromenager","LAVE-VAISSELLE",450,500,119.99,129.99,-1,39],["Electromenager","LAVE-VAISSELLE",500,700,129.99,139.99,-1,39],["Electromenager","LAVE-VAISSELLE",700,99999999,139.99,159.99,-1,39],
-["Electromenager","TABLE DE CUISSON",0,100,19.99,29.99,-1,39],["Electromenager","TABLE DE CUISSON",100,150,29.99,39.99,-1,39],["Electromenager","TABLE DE CUISSON",150,200,34.99,44.99,-1,39],["Electromenager","TABLE DE CUISSON",200,250,39.99,49.99,-1,39],["Electromenager","TABLE DE CUISSON",250,300,49.99,59.99,-1,39],["Electromenager","TABLE DE CUISSON",300,400,59.99,69.99,-1,39],["Electromenager","TABLE DE CUISSON",400,500,69.99,79.99,-1,39],["Electromenager","TABLE DE CUISSON",500,650,99.99,109.99,-1,39],["Electromenager","TABLE DE CUISSON",650,99999999,109.99,129.99,-1,39],
-["Electromenager","CUISINIERE",0,100,10.99,20.99,-1,39],["Electromenager","CUISINIERE",100,150,19.99,29.99,-1,39],["Electromenager","CUISINIERE",150,200,24.99,34.99,-1,39],["Electromenager","CUISINIERE",200,250,29.99,39.99,-1,39],["Electromenager","CUISINIERE",250,300,39.99,49.99,-1,39],["Electromenager","CUISINIERE",300,400,59.99,69.99,-1,39],["Electromenager","CUISINIERE",400,500,69.99,89.99,-1,39],["Electromenager","CUISINIERE",500,750,89.99,109.99,-1,39],["Electromenager","CUISINIERE",750,900,99.99,119.99,-1,39],["Electromenager","CUISINIERE",900,1000,119.99,139.99,-1,39],["Electromenager","CUISINIERE",1000,99999999,139.99,159.99,-1,39],
-["Electromenager","FOUR",0,150,19.99,29.99,-1,39],["Electromenager","FOUR",150,250,39.99,49.99,-1,39],["Electromenager","FOUR",250,300,44.99,54.99,-1,39],["Electromenager","FOUR",300,400,59.99,69.99,-1,39],["Electromenager","FOUR",400,500,69.99,89.99,-1,39],["Electromenager","FOUR",500,650,79.99,99.99,-1,39],["Electromenager","FOUR",650,99999999,89.99,109.99,-1,39],
-["Electromenager","HOTTE",0,100,14.99,24.99,-1,39],["Electromenager","HOTTE",100,150,19.99,29.99,-1,39],["Electromenager","HOTTE",150,200,24.99,34.99,-1,39],["Electromenager","HOTTE",200,300,39.99,49.99,-1,39],["Electromenager","HOTTE",300,350,49.99,69.99,-1,39],["Electromenager","HOTTE",350,99999999,59.99,79.99,-1,39],
-["Electromenager","TV",0,100,0,19.99,-1,39],["Electromenager","TV",100,150,0,39.99,-1,39],["Electromenager","TV",150,200,0,49.99,-1,39],["Electromenager","TV",200,300,0,69.99,-1,39],["Electromenager","TV",300,400,0,89.99,-1,39],["Electromenager","TV",400,500,0,119.99,-1,39],["Electromenager","TV",500,600,0,129.99,-1,39],["Electromenager","TV",600,700,0,139.99,-1,39],["Electromenager","TV",700,800,0,169.99,-1,39],["Electromenager","TV",800,900,0,189.99,-1,39],["Electromenager","TV",900,1000,0,209.99,-1,39],["Electromenager","TV",1000,1500,0,289.99,-1,39],["Electromenager","TV",1500,2000,0,339.99,-1,39],["Electromenager","TV",2000,99999999,0,389.99,-1,39],
-["Electromenager","FMO (Four Micro-Ondes)",0,50,0,9.99,-1,39],["Electromenager","FMO (Four Micro-Ondes)",50,100,0,14.99,-1,39],["Electromenager","FMO (Four Micro-Ondes)",100,150,0,29.99,-1,39],["Electromenager","FMO (Four Micro-Ondes)",150,200,0,39.99,-1,39],["Electromenager","FMO (Four Micro-Ondes)",200,300,0,49.99,-1,39],["Electromenager","FMO (Four Micro-Ondes)",300,99999999,0,59.99,-1,39],
-["Electromenager","ROBOTS",0,200,0,29.99,-1,39],["Electromenager","ROBOTS",200,300,0,39.99,-1,39],["Electromenager","ROBOTS",300,500,0,54.99,-1,39],["Electromenager","ROBOTS",500,99999999,0,74.99,-1,39],
-["Electromenager","EXPRESSO",0,100,0,19.99,-1,39],["Electromenager","EXPRESSO",100,150,0,24.99,-1,39],["Electromenager","EXPRESSO",150,200,0,29.99,-1,39],["Electromenager","EXPRESSO",200,400,0,39.99,-1,39],["Electromenager","EXPRESSO",400,99999999,0,59.99,-1,39],
-["Electromenager","ASPIRATEUR",0,50,0,14.99,-1,39],["Electromenager","ASPIRATEUR",50,100,0,24.99,-1,39],["Electromenager","ASPIRATEUR",100,150,0,34.99,-1,39],["Electromenager","ASPIRATEUR",150,200,0,49.99,-1,39],["Electromenager","ASPIRATEUR",200,250,0,59.99,-1,39],["Electromenager","ASPIRATEUR",250,300,0,64.99,-1,39],["Electromenager","ASPIRATEUR",300,400,0,79.99,-1,39],["Electromenager","ASPIRATEUR",400,500,0,99.99,-1,39],["Electromenager","ASPIRATEUR",500,600,0,114.99,-1,39],["Electromenager","ASPIRATEUR",600,99999999,0,134.99,-1,39],
-["Electromenager","CAVE A VIN",0,200,0,49.99,-1,39],["Electromenager","CAVE A VIN",200,350,0,59.99,-1,39],["Electromenager","CAVE A VIN",350,500,0,69.99,-1,39],["Electromenager","CAVE A VIN",500,99999999,0,79.99,-1,39],
-["Electromenager","PEM (Petit Electromenager)",0,100,0,10.9,0,39],["Electromenager","PEM (Petit Electromenager)",100,99999999,0,19.9,0,39],
-["Electromenager","CLIM",0,99999999,0,75.9,-1,39],
-["Meubles","SIEGE",0,50,6.99,9.99,0,49],["Meubles","SIEGE",50,100,19.99,24.99,0,49],["Meubles","SIEGE",100,150,29.99,34.99,0,49],["Meubles","SIEGE",150,200,39.99,49.99,0,49],["Meubles","SIEGE",200,250,49.99,59.99,0,69],["Meubles","SIEGE",250,300,59.99,79.99,0,69],["Meubles","SIEGE",300,450,69.99,89.99,0,69],["Meubles","SIEGE",450,550,79.99,99.99,0,95],["Meubles","SIEGE",550,650,89.99,119.99,0,95],["Meubles","SIEGE",650,750,99.99,129.99,0,95],["Meubles","SIEGE",750,1000,109.99,149.99,0,105],["Meubles","SIEGE",1000,1500,139.99,189.99,209.99,125],["Meubles","SIEGE",1500,2000,179.99,229.99,249.99,139],["Meubles","SIEGE",2000,3000,269.99,299.99,0,139],["Meubles","SIEGE",3000,99999999,319.99,349.99,0,139],
-["Meubles","LITERIE (Meuble)",0,50,6.99,19.99,0,40],["Meubles","LITERIE (Meuble)",50,100,9.99,24.99,0,40],["Meubles","LITERIE (Meuble)",100,200,19.99,34.99,0,40],["Meubles","LITERIE (Meuble)",200,250,29.99,39.99,0,40],["Meubles","LITERIE (Meuble)",250,300,34.99,49.99,0,40],["Meubles","LITERIE (Meuble)",300,350,39.99,59.99,0,40],["Meubles","LITERIE (Meuble)",350,400,44.99,69.99,0,40],["Meubles","LITERIE (Meuble)",400,450,49.99,79.99,89.99,40],["Meubles","LITERIE (Meuble)",450,500,59.99,89.99,99.99,40],["Meubles","LITERIE (Meuble)",500,550,69.99,99.99,109.99,40],["Meubles","LITERIE (Meuble)",550,600,79.99,109.99,119.99,40],["Meubles","LITERIE (Meuble)",600,650,89.99,119.99,129.99,40],["Meubles","LITERIE (Meuble)",650,700,99.99,129.99,139.99,40],["Meubles","LITERIE (Meuble)",700,750,109.99,139.99,149.99,40],["Meubles","LITERIE (Meuble)",750,800,119.99,149.99,159.99,40],["Meubles","LITERIE (Meuble)",800,850,129.99,159.99,169.99,40],["Meubles","LITERIE (Meuble)",850,900,149.99,169.99,189.99,40],["Meubles","LITERIE (Meuble)",900,1000,179.99,209.99,0,40],["Meubles","LITERIE (Meuble)",1000,1500,199.99,229.99,0,40],["Meubles","LITERIE (Meuble)",1500,2000,219.99,249.99,0,40],["Meubles","LITERIE (Meuble)",2000,3000,239.99,269.99,0,40],["Meubles","LITERIE (Meuble)",3000,99999999,259.99,289.99,0,40],
-["Meubles","SEJOUR",0,50,9.99,14.99,0,49],["Meubles","SEJOUR",50,100,14.99,24.99,0,49],["Meubles","SEJOUR",100,150,24.99,39.99,0,49],["Meubles","SEJOUR",150,200,29.99,49.99,0,49],["Meubles","SEJOUR",200,250,39.99,59.99,0,69],["Meubles","SEJOUR",250,300,49.99,69.99,0,69],["Meubles","SEJOUR",300,500,69.99,79.99,0,69],["Meubles","SEJOUR",500,750,79.99,89.99,0,95],["Meubles","SEJOUR",750,1000,89.99,99.99,0,105],["Meubles","SEJOUR",1000,1200,109.99,119.99,0,125],["Meubles","SEJOUR",1200,1500,129.99,139.99,0,125],["Meubles","SEJOUR",1500,2000,149.99,159.99,0,139],["Meubles","SEJOUR",2000,3000,179.99,189.99,0,139],["Meubles","SEJOUR",3000,99999999,209.99,219.99,0,139],
-["Meubles","CAC (Canape/Convertible)",0,50,9.99,14.99,0,49],["Meubles","CAC (Canape/Convertible)",50,100,14.99,19.99,0,49],["Meubles","CAC (Canape/Convertible)",100,150,24.99,34.99,0,49],["Meubles","CAC (Canape/Convertible)",150,200,34.99,49.99,0,49],["Meubles","CAC (Canape/Convertible)",200,250,39.99,59.99,0,69],["Meubles","CAC (Canape/Convertible)",250,300,49.99,69.99,0,69],["Meubles","CAC (Canape/Convertible)",300,1000,79.99,89.99,0,69],["Meubles","CAC (Canape/Convertible)",1000,99999999,99.99,109.99,0,125],
-["Meubles","RANGEMENT",0,50,6.99,9.99,0,49],["Meubles","RANGEMENT",50,100,14.99,19.99,0,49],["Meubles","RANGEMENT",100,150,19.99,29.99,0,49],["Meubles","RANGEMENT",150,300,29.99,39.99,0,49],["Meubles","RANGEMENT",300,99999999,39.99,59.99,0,69],
-["Meubles","CUISINE (meuble)",0,1000,129.99,0,0,49],["Meubles","CUISINE (meuble)",1000,1500,149.99,0,0,125],["Meubles","CUISINE (meuble)",1500,2000,199.99,0,0,139],["Meubles","CUISINE (meuble)",2000,2500,249.99,0,0,139],["Meubles","CUISINE (meuble)",2500,3000,299.99,0,0,139],["Meubles","CUISINE (meuble)",3000,4000,349.99,0,0,139],["Meubles","CUISINE (meuble)",4000,5000,399.99,0,0,139],["Meubles","CUISINE (meuble)",5000,7000,0,599.99,0,139],["Meubles","CUISINE (meuble)",7000,10000,0,749.99,0,139],["Meubles","CUISINE (meuble)",10000,99999999,0,999.99,0,139],
-["Literie","LITERIE",0,50,6.99,19.99,0,40],["Literie","LITERIE",50,100,9.99,24.99,0,40],["Literie","LITERIE",100,200,19.99,34.99,0,40],["Literie","LITERIE",200,250,29.99,39.99,0,40],["Literie","LITERIE",250,300,34.99,49.99,0,40],["Literie","LITERIE",300,350,39.99,59.99,0,40],["Literie","LITERIE",350,400,44.99,69.99,0,40],["Literie","LITERIE",400,450,49.99,79.99,89.99,40],["Literie","LITERIE",450,500,59.99,89.99,99.99,40],["Literie","LITERIE",500,550,69.99,99.99,109.99,40],["Literie","LITERIE",550,600,79.99,109.99,119.99,40],["Literie","LITERIE",600,650,89.99,119.99,129.99,40],["Literie","LITERIE",650,700,99.99,129.99,139.99,40],["Literie","LITERIE",700,750,109.99,139.99,149.99,40],["Literie","LITERIE",750,800,119.99,149.99,159.99,40],["Literie","LITERIE",800,850,129.99,159.99,169.99,40],["Literie","LITERIE",850,900,149.99,169.99,189.99,40],["Literie","LITERIE",900,1000,179.99,209.99,0,40],["Literie","LITERIE",1000,1500,199.99,229.99,0,40],["Literie","LITERIE",1500,2000,219.99,249.99,0,40],["Literie","LITERIE",2000,3000,239.99,269.99,0,40],["Literie","LITERIE",3000,99999999,259.99,289.99,0,40]
+["Electromenager","LAVE-LINGE",0,150,39.99,49.99,-1,25,39,0,0,0],["Electromenager","LAVE-LINGE",150,250,69.99,79.99,-1,25,39,0,0,0],["Electromenager","LAVE-LINGE",250,400,89.99,99.99,-1,25,39,0,0,0],["Electromenager","LAVE-LINGE",400,450,99.99,109.99,-1,25,39,0,0,0],["Electromenager","LAVE-LINGE",450,550,119.99,129.99,-1,25,39,0,0,0],["Electromenager","LAVE-LINGE",550,99999999,139.99,149.99,-1,25,39,0,0,0],
+["Electromenager","REFRIGERATEUR",0,150,19.99,29.99,-1,25,39,0,0,0],["Electromenager","REFRIGERATEUR",150,250,39.99,49.99,-1,25,39,0,0,0],["Electromenager","REFRIGERATEUR",250,300,59.99,69.99,-1,25,39,0,0,0],["Electromenager","REFRIGERATEUR",300,400,69.99,79.99,-1,25,39,0,0,0],["Electromenager","REFRIGERATEUR",400,500,89.99,99.99,-1,25,39,0,0,0],["Electromenager","REFRIGERATEUR",500,600,109.99,119.99,-1,25,39,0,0,0],["Electromenager","REFRIGERATEUR",600,750,129.99,139.99,-1,25,39,0,0,0],["Electromenager","REFRIGERATEUR",750,99999999,139.99,149.99,-1,25,39,0,0,0],
+["Electromenager","REFRIGERATEUR US",0,900,139.99,149.99,-1,0,79,0,0,0],["Electromenager","REFRIGERATEUR US",900,950,159.99,169.99,-1,0,79,0,0,0],["Electromenager","REFRIGERATEUR US",950,1000,189.99,199.99,-1,0,79,0,0,0],["Electromenager","REFRIGERATEUR US",1000,99999999,219.99,229.99,-1,0,79,0,0,0],
+["Electromenager","SECHE-LINGE",0,250,69.99,79.99,-1,25,39,0,0,0],["Electromenager","SECHE-LINGE",250,350,79.99,89.99,-1,25,39,0,0,0],["Electromenager","SECHE-LINGE",350,450,109.99,119.99,-1,25,39,0,0,0],["Electromenager","SECHE-LINGE",450,500,119.99,129.99,-1,25,39,0,0,0],["Electromenager","SECHE-LINGE",500,99999999,129.99,139.99,-1,25,39,0,0,0],
+["Electromenager","COMBINE",0,200,29.99,39.99,-1,25,39,0,0,0],["Electromenager","COMBINE",200,300,69.99,79.99,-1,25,39,0,0,0],["Electromenager","COMBINE",300,400,79.99,89.99,-1,25,39,0,0,0],["Electromenager","COMBINE",400,600,109.99,119.99,-1,25,39,0,0,0],["Electromenager","COMBINE",600,850,119.99,129.99,-1,25,39,0,0,0],["Electromenager","COMBINE",850,99999999,139.99,149.99,-1,25,39,0,0,0],
+["Electromenager","CONGELATEUR",0,200,39.99,49.99,-1,25,39,0,0,0],["Electromenager","CONGELATEUR",200,350,59.99,69.99,-1,25,39,0,0,0],["Electromenager","CONGELATEUR",350,500,89.99,99.99,-1,25,39,0,0,0],["Electromenager","CONGELATEUR",500,900,119.99,129.99,-1,25,39,0,0,0],["Electromenager","CONGELATEUR",900,99999999,139.99,149.99,-1,25,39,0,0,0],
+["Electromenager","LAVE-VAISSELLE",0,100,39.99,49.99,-1,25,39,0,0,0],["Electromenager","LAVE-VAISSELLE",100,150,59.99,69.99,-1,25,39,0,0,0],["Electromenager","LAVE-VAISSELLE",150,200,79.99,89.99,-1,25,39,0,0,0],["Electromenager","LAVE-VAISSELLE",200,300,89.99,99.99,-1,25,39,0,0,0],["Electromenager","LAVE-VAISSELLE",300,400,99.99,109.99,-1,25,39,0,0,0],["Electromenager","LAVE-VAISSELLE",400,450,109.99,119.99,-1,25,39,0,0,0],["Electromenager","LAVE-VAISSELLE",450,500,119.99,129.99,-1,25,39,0,0,0],["Electromenager","LAVE-VAISSELLE",500,700,129.99,139.99,-1,25,39,0,0,0],["Electromenager","LAVE-VAISSELLE",700,99999999,139.99,159.99,-1,25,39,0,0,0],
+["Electromenager","TABLE DE CUISSON",0,100,19.99,29.99,-1,25,39,0,0,0],["Electromenager","TABLE DE CUISSON",100,150,29.99,39.99,-1,25,39,0,0,0],["Electromenager","TABLE DE CUISSON",150,200,34.99,44.99,-1,25,39,0,0,0],["Electromenager","TABLE DE CUISSON",200,250,39.99,49.99,-1,25,39,0,0,0],["Electromenager","TABLE DE CUISSON",250,300,49.99,59.99,-1,25,39,0,0,0],["Electromenager","TABLE DE CUISSON",300,400,59.99,69.99,-1,25,39,0,0,0],["Electromenager","TABLE DE CUISSON",400,500,69.99,79.99,-1,25,39,0,0,0],["Electromenager","TABLE DE CUISSON",500,650,99.99,109.99,-1,25,39,0,0,0],["Electromenager","TABLE DE CUISSON",650,99999999,109.99,129.99,-1,25,39,0,0,0],
+["Electromenager","CUISINIERE",0,100,10.99,20.99,-1,25,39,0,0,0],["Electromenager","CUISINIERE",100,150,19.99,29.99,-1,25,39,0,0,0],["Electromenager","CUISINIERE",150,200,24.99,34.99,-1,25,39,0,0,0],["Electromenager","CUISINIERE",200,250,29.99,39.99,-1,25,39,0,0,0],["Electromenager","CUISINIERE",250,300,39.99,49.99,-1,25,39,0,0,0],["Electromenager","CUISINIERE",300,400,59.99,69.99,-1,25,39,0,0,0],["Electromenager","CUISINIERE",400,500,69.99,89.99,-1,25,39,0,0,0],["Electromenager","CUISINIERE",500,750,89.99,109.99,-1,25,39,0,0,0],["Electromenager","CUISINIERE",750,900,99.99,119.99,-1,25,39,0,0,0],["Electromenager","CUISINIERE",900,1000,119.99,139.99,-1,25,39,0,0,0],["Electromenager","CUISINIERE",1000,99999999,139.99,159.99,-1,25,39,0,0,0],
+["Electromenager","FOUR",0,150,19.99,29.99,-1,25,39,0,0,0],["Electromenager","FOUR",150,250,39.99,49.99,-1,25,39,0,0,0],["Electromenager","FOUR",250,300,44.99,54.99,-1,25,39,0,0,0],["Electromenager","FOUR",300,400,59.99,69.99,-1,25,39,0,0,0],["Electromenager","FOUR",400,500,69.99,89.99,-1,25,39,0,0,0],["Electromenager","FOUR",500,650,79.99,99.99,-1,25,39,0,0,0],["Electromenager","FOUR",650,99999999,89.99,109.99,-1,25,39,0,0,0],
+["Electromenager","HOTTE",0,100,14.99,24.99,-1,25,39,0,0,0],["Electromenager","HOTTE",100,150,19.99,29.99,-1,25,39,0,0,0],["Electromenager","HOTTE",150,200,24.99,34.99,-1,25,39,0,0,0],["Electromenager","HOTTE",200,300,39.99,49.99,-1,25,39,0,0,0],["Electromenager","HOTTE",300,350,49.99,69.99,-1,25,39,0,0,0],["Electromenager","HOTTE",350,99999999,59.99,79.99,-1,25,39,0,0,0],
+["Electromenager","TV",0,100,0,19.99,-1,25,39,0,0,0],["Electromenager","TV",100,150,0,39.99,-1,25,39,0,0,0],["Electromenager","TV",150,200,0,49.99,-1,25,39,0,0,0],["Electromenager","TV",200,300,0,69.99,-1,25,39,0,0,0],["Electromenager","TV",300,400,0,89.99,-1,25,39,0,0,0],["Electromenager","TV",400,500,0,119.99,-1,25,39,0,0,0],["Electromenager","TV",500,600,0,129.99,-1,25,39,0,0,0],["Electromenager","TV",600,700,0,139.99,-1,25,39,0,0,0],["Electromenager","TV",700,800,0,169.99,-1,25,39,0,0,0],["Electromenager","TV",800,900,0,189.99,-1,25,39,0,0,0],["Electromenager","TV",900,1000,0,209.99,-1,25,39,0,0,0],["Electromenager","TV",1000,1500,0,289.99,-1,25,39,0,0,0],["Electromenager","TV",1500,2000,0,339.99,-1,25,39,0,0,0],["Electromenager","TV",2000,99999999,0,389.99,-1,25,39,0,0,0],
+["Electromenager","FMO (Four Micro-Ondes)",0,50,0,9.99,-1,25,39,0,0,0],["Electromenager","FMO (Four Micro-Ondes)",50,100,0,14.99,-1,25,39,0,0,0],["Electromenager","FMO (Four Micro-Ondes)",100,150,0,29.99,-1,25,39,0,0,0],["Electromenager","FMO (Four Micro-Ondes)",150,200,0,39.99,-1,25,39,0,0,0],["Electromenager","FMO (Four Micro-Ondes)",200,300,0,49.99,-1,25,39,0,0,0],["Electromenager","FMO (Four Micro-Ondes)",300,99999999,0,59.99,-1,25,39,0,0,0],
+["Electromenager","ROBOTS",0,200,0,29.99,-1,25,39,0,0,0],["Electromenager","ROBOTS",200,300,0,39.99,-1,25,39,0,0,0],["Electromenager","ROBOTS",300,500,0,54.99,-1,25,39,0,0,0],["Electromenager","ROBOTS",500,99999999,0,74.99,-1,25,39,0,0,0],
+["Electromenager","EXPRESSO",0,100,0,19.99,-1,25,39,0,0,0],["Electromenager","EXPRESSO",100,150,0,24.99,-1,25,39,0,0,0],["Electromenager","EXPRESSO",150,200,0,29.99,-1,25,39,0,0,0],["Electromenager","EXPRESSO",200,400,0,39.99,-1,25,39,0,0,0],["Electromenager","EXPRESSO",400,99999999,0,59.99,-1,25,39,0,0,0],
+["Electromenager","ASPIRATEUR",0,50,0,14.99,-1,25,39,0,0,0],["Electromenager","ASPIRATEUR",50,100,0,24.99,-1,25,39,0,0,0],["Electromenager","ASPIRATEUR",100,150,0,34.99,-1,25,39,0,0,0],["Electromenager","ASPIRATEUR",150,200,0,49.99,-1,25,39,0,0,0],["Electromenager","ASPIRATEUR",200,250,0,59.99,-1,25,39,0,0,0],["Electromenager","ASPIRATEUR",250,300,0,64.99,-1,25,39,0,0,0],["Electromenager","ASPIRATEUR",300,400,0,79.99,-1,25,39,0,0,0],["Electromenager","ASPIRATEUR",400,500,0,99.99,-1,25,39,0,0,0],["Electromenager","ASPIRATEUR",500,600,0,114.99,-1,25,39,0,0,0],["Electromenager","ASPIRATEUR",600,99999999,0,134.99,-1,25,39,0,0,0],
+["Electromenager","CAVE A VIN",0,200,0,49.99,-1,25,39,0,0,0],["Electromenager","CAVE A VIN",200,350,0,59.99,-1,25,39,0,0,0],["Electromenager","CAVE A VIN",350,500,0,69.99,-1,25,39,0,0,0],["Electromenager","CAVE A VIN",500,99999999,0,79.99,-1,25,39,0,0,0],
+["Electromenager","PEM (Petit Electromenager)",0,100,0,10.9,0,25,39,0,0,0],["Electromenager","PEM (Petit Electromenager)",100,99999999,0,19.9,0,25,39,0,0,0],
+["Electromenager","CLIM",0,99999999,0,75.9,-1,25,39,0,0,0],
+["Meubles","SIEGE",0,50,6.99,9.99,0,39,49,35,0,0],["Meubles","SIEGE",50,100,19.99,24.99,0,39,49,35,0,0],["Meubles","SIEGE",100,150,29.99,34.99,0,39,49,35,0,0],["Meubles","SIEGE",150,200,39.99,49.99,0,39,49,35,0,0],["Meubles","SIEGE",200,250,49.99,59.99,0,55,69,50,0,0],["Meubles","SIEGE",250,300,59.99,79.99,0,55,69,50,0,0],["Meubles","SIEGE",300,450,69.99,89.99,0,55,69,50,0,0],["Meubles","SIEGE",450,550,79.99,99.99,0,75,95,75,0,0],["Meubles","SIEGE",550,650,89.99,119.99,0,75,95,75,0,0],["Meubles","SIEGE",650,750,99.99,129.99,0,75,95,75,0,0],["Meubles","SIEGE",750,1000,109.99,149.99,0,85,105,75,0,0],["Meubles","SIEGE",1000,1500,139.99,189.99,209.99,95,125,95,0,0],["Meubles","SIEGE",1500,2000,179.99,229.99,249.99,120,139,95,0,0],["Meubles","SIEGE",2000,3000,269.99,299.99,0,120,139,95,0,0],["Meubles","SIEGE",3000,99999999,319.99,349.99,0,120,139,95,0,0],
+["Meubles","LITERIE (Meuble)",0,50,6.99,19.99,0,30,40,35,60,80],["Meubles","LITERIE (Meuble)",50,100,9.99,24.99,0,30,40,35,60,80],["Meubles","LITERIE (Meuble)",100,200,19.99,34.99,0,30,40,35,60,80],["Meubles","LITERIE (Meuble)",200,250,29.99,39.99,0,30,40,50,60,80],["Meubles","LITERIE (Meuble)",250,300,34.99,49.99,0,30,40,50,60,80],["Meubles","LITERIE (Meuble)",300,350,39.99,59.99,0,30,40,50,60,80],["Meubles","LITERIE (Meuble)",350,400,44.99,69.99,0,30,40,50,60,80],["Meubles","LITERIE (Meuble)",400,450,49.99,79.99,89.99,30,40,75,60,80],["Meubles","LITERIE (Meuble)",450,500,59.99,89.99,99.99,30,40,75,60,80],["Meubles","LITERIE (Meuble)",500,550,69.99,99.99,109.99,30,40,75,60,80],["Meubles","LITERIE (Meuble)",550,600,79.99,109.99,119.99,30,40,75,60,80],["Meubles","LITERIE (Meuble)",600,650,89.99,119.99,129.99,30,40,75,60,80],["Meubles","LITERIE (Meuble)",650,700,99.99,129.99,139.99,30,40,75,60,80],["Meubles","LITERIE (Meuble)",700,750,109.99,139.99,149.99,30,40,75,60,80],["Meubles","LITERIE (Meuble)",750,800,119.99,149.99,159.99,30,40,75,60,80],["Meubles","LITERIE (Meuble)",800,850,129.99,159.99,169.99,30,40,75,60,80],["Meubles","LITERIE (Meuble)",850,900,149.99,169.99,189.99,30,40,75,60,80],["Meubles","LITERIE (Meuble)",900,1000,179.99,209.99,0,30,40,75,60,80],["Meubles","LITERIE (Meuble)",1000,1500,199.99,229.99,0,30,40,95,60,80],["Meubles","LITERIE (Meuble)",1500,2000,219.99,249.99,0,30,40,95,60,80],["Meubles","LITERIE (Meuble)",2000,3000,239.99,269.99,0,30,40,95,60,80],["Meubles","LITERIE (Meuble)",3000,99999999,259.99,289.99,0,30,40,95,60,80],
+["Meubles","SEJOUR",0,50,9.99,14.99,0,39,49,35,0,0],["Meubles","SEJOUR",50,100,14.99,24.99,0,39,49,35,0,0],["Meubles","SEJOUR",100,150,24.99,39.99,0,39,49,35,0,0],["Meubles","SEJOUR",150,200,29.99,49.99,0,39,49,35,0,0],["Meubles","SEJOUR",200,250,39.99,59.99,0,55,69,50,0,0],["Meubles","SEJOUR",250,300,49.99,69.99,0,55,69,50,0,0],["Meubles","SEJOUR",300,500,69.99,79.99,0,55,69,50,0,0],["Meubles","SEJOUR",500,750,79.99,89.99,0,75,95,75,0,0],["Meubles","SEJOUR",750,1000,89.99,99.99,0,85,105,75,0,0],["Meubles","SEJOUR",1000,1200,109.99,119.99,0,95,125,95,0,0],["Meubles","SEJOUR",1200,1500,129.99,139.99,0,95,125,95,0,0],["Meubles","SEJOUR",1500,2000,149.99,159.99,0,120,139,95,0,0],["Meubles","SEJOUR",2000,3000,179.99,189.99,0,120,139,95,0,0],["Meubles","SEJOUR",3000,99999999,209.99,219.99,0,120,139,95,0,0],
+["Meubles","CAC (Canape/Convertible)",0,50,9.99,14.99,0,39,49,35,0,0],["Meubles","CAC (Canape/Convertible)",50,100,14.99,19.99,0,39,49,35,0,0],["Meubles","CAC (Canape/Convertible)",100,150,24.99,34.99,0,39,49,35,0,0],["Meubles","CAC (Canape/Convertible)",150,200,34.99,49.99,0,39,49,35,0,0],["Meubles","CAC (Canape/Convertible)",200,250,39.99,59.99,0,55,69,50,0,0],["Meubles","CAC (Canape/Convertible)",250,300,49.99,69.99,0,55,69,50,0,0],["Meubles","CAC (Canape/Convertible)",300,1000,79.99,89.99,0,55,69,50,0,0],["Meubles","CAC (Canape/Convertible)",1000,99999999,99.99,109.99,0,95,125,95,0,0],
+["Meubles","RANGEMENT",0,50,6.99,9.99,0,39,49,35,0,0],["Meubles","RANGEMENT",50,100,14.99,19.99,0,39,49,35,0,0],["Meubles","RANGEMENT",100,150,19.99,29.99,0,39,49,35,0,0],["Meubles","RANGEMENT",150,300,29.99,39.99,0,39,49,35,0,0],["Meubles","RANGEMENT",300,99999999,39.99,59.99,0,55,69,50,0,0],
+["Meubles","CUISINE (meuble)",0,1000,129.99,0,0,39,49,0,0,0],["Meubles","CUISINE (meuble)",1000,1500,149.99,0,0,95,125,0,0,0],["Meubles","CUISINE (meuble)",1500,2000,199.99,0,0,120,139,0,0,0],["Meubles","CUISINE (meuble)",2000,2500,249.99,0,0,120,139,0,0,0],["Meubles","CUISINE (meuble)",2500,3000,299.99,0,0,120,139,0,0,0],["Meubles","CUISINE (meuble)",3000,4000,349.99,0,0,120,139,0,0,0],["Meubles","CUISINE (meuble)",4000,5000,399.99,0,0,120,139,0,0,0],["Meubles","CUISINE (meuble)",5000,7000,0,599.99,0,120,139,0,0,0],["Meubles","CUISINE (meuble)",7000,10000,0,749.99,0,120,139,0,0,0],["Meubles","CUISINE (meuble)",10000,99999999,0,999.99,0,120,139,0,0,0],
+["Literie","LITERIE",0,50,6.99,19.99,0,30,40,0,60,80],["Literie","LITERIE",50,100,9.99,24.99,0,30,40,0,60,80],["Literie","LITERIE",100,200,19.99,34.99,0,30,40,0,60,80],["Literie","LITERIE",200,250,29.99,39.99,0,30,40,0,60,80],["Literie","LITERIE",250,300,34.99,49.99,0,30,40,0,60,80],["Literie","LITERIE",300,350,39.99,59.99,0,30,40,0,60,80],["Literie","LITERIE",350,400,44.99,69.99,0,30,40,0,60,80],["Literie","LITERIE",400,450,49.99,79.99,89.99,30,40,0,60,80],["Literie","LITERIE",450,500,59.99,89.99,99.99,30,40,0,60,80],["Literie","LITERIE",500,550,69.99,99.99,109.99,30,40,0,60,80],["Literie","LITERIE",550,600,79.99,109.99,119.99,30,40,0,60,80],["Literie","LITERIE",600,650,89.99,119.99,129.99,30,40,0,60,80],["Literie","LITERIE",650,700,99.99,129.99,139.99,30,40,0,60,80],["Literie","LITERIE",700,750,109.99,139.99,149.99,30,40,0,60,80],["Literie","LITERIE",750,800,119.99,149.99,159.99,30,40,0,60,80],["Literie","LITERIE",800,850,129.99,159.99,169.99,30,40,0,60,80],["Literie","LITERIE",850,900,149.99,169.99,189.99,30,40,0,60,80],["Literie","LITERIE",900,1000,179.99,209.99,0,30,40,0,60,80],["Literie","LITERIE",1000,1500,199.99,229.99,0,30,40,0,60,80],["Literie","LITERIE",1500,2000,219.99,249.99,0,30,40,0,60,80],["Literie","LITERIE",2000,3000,239.99,269.99,0,30,40,0,60,80],["Literie","LITERIE",3000,99999999,259.99,289.99,0,30,40,0,60,80]
 ];
 
 function initEmbeddedSimulateur() {
   simDonnees = SIM_RAW.map(r => ({
     univers: r[0], famille: r[1], prixMin: r[2], prixMax: r[3],
-    gar1: r[4], gar2: r[5], gar3: r[6], liv: r[7]
+    gar1: r[4], gar2: r[5], gar3: r[6],
+    livPdP: r[7], livDom: r[8], montage: r[9],
+    livEnsPdP: r[10], livEnsDom: r[11]
   }));
 }
 
@@ -1195,13 +1228,18 @@ function lookupWarrantyAll(universILV, rayonILV, prix) {
     }
   }
 
-  if (!match) return { gar1: 0, gar2: 0, gar3: 0, livraison: 0 };
+  if (!match) return { gar1: 0, gar2: 0, gar3: 0, livraison: 0, livPdP: 0, livDom: 0, montage: 0, livEnsPdP: 0, livEnsDom: 0 };
 
   return {
     gar1: match.gar1 > 0 ? match.gar1 : 0,
     gar2: match.gar2 > 0 ? match.gar2 : 0,
     gar3: match.gar3 > 0 ? match.gar3 : 0,
-    livraison: match.liv > 0 ? match.liv : 0
+    livraison: match.livDom > 0 ? match.livDom : 0,
+    livPdP: match.livPdP > 0 ? match.livPdP : 0,
+    livDom: match.livDom > 0 ? match.livDom : 0,
+    montage: match.montage > 0 ? match.montage : 0,
+    livEnsPdP: match.livEnsPdP > 0 ? match.livEnsPdP : 0,
+    livEnsDom: match.livEnsDom > 0 ? match.livEnsDom : 0
   };
 }
 
@@ -1614,10 +1652,12 @@ function onEanSelect() {
   // Update displayed prices
   document.getElementById('ean-garantie-prix').value = pickGarantie(selectedEanWarAll, defaultLevel);
   document.getElementById('ean-garantie-prix-display').textContent = formatPrixService(pickGarantie(selectedEanWarAll, defaultLevel));
-  document.getElementById('ean-livraison-prix').textContent = formatPrixService(selectedEanWarAll.livraison);
+  // Setup livraison options based on available types
+  refreshEanLivOptions();
   // Reset checkboxes : garantie cochée par défaut si dispo, livraison décochée
   document.getElementById('ean-include-gar').checked = (defaultLevel > 0 && pickGarantie(selectedEanWarAll, defaultLevel) > 0);
   document.getElementById('ean-include-liv').checked = false;
+  refreshLivraisonUI();
   refreshGarantieUI();
 
   // Enable/disable unavailable levels (Premium niv.3 reste toujours indisponible)
@@ -1647,7 +1687,67 @@ function onIncludeGarantieChange() {
 }
 
 function onIncludeLivraisonChange() {
-  // Visuel uniquement, le calcul utilise la valeur du checkbox au moment de l'ajout
+  refreshLivraisonUI();
+}
+
+// Get the livraison price for the selected type from warAll
+function getLivPrixForType(warAll, type) {
+  if (!warAll) return 0;
+  switch (type) {
+    case 'pdp': return warAll.livPdP || 0;
+    case 'dom': return warAll.livDom || 0;
+    case 'ensPdP': return warAll.livEnsPdP || 0;
+    case 'ensDom': return warAll.livEnsDom || 0;
+    default: return warAll.livDom || 0;
+  }
+}
+
+// Populate livraison type options for EAN mode
+function refreshEanLivOptions() {
+  if (!selectedEanWarAll) return;
+  const w = selectedEanWarAll;
+  const sel = document.getElementById('ean-liv-type');
+  // Show/hide options based on availability
+  sel.querySelector('option[value="dom"]').style.display = w.livDom > 0 ? '' : 'none';
+  sel.querySelector('option[value="pdp"]').style.display = w.livPdP > 0 ? '' : 'none';
+  sel.querySelector('option[value="ensPdP"]').style.display = w.livEnsPdP > 0 ? '' : 'none';
+  sel.querySelector('option[value="ensDom"]').style.display = w.livEnsDom > 0 ? '' : 'none';
+  // Default to domicile
+  sel.value = w.livDom > 0 ? 'dom' : (w.livPdP > 0 ? 'pdp' : 'dom');
+  // Update price display
+  document.getElementById('ean-livraison-prix').textContent = formatPrixService(getLivPrixForType(w, sel.value));
+  // Montage
+  const montageRow = document.getElementById('ean-montage-row');
+  if (w.montage > 0) {
+    montageRow.style.display = 'flex';
+    document.getElementById('ean-montage-prix').textContent = formatPrixService(w.montage);
+    document.getElementById('ean-include-montage').checked = false;
+  } else {
+    montageRow.style.display = 'none';
+  }
+}
+
+function refreshLivraisonUI() {
+  const cb = document.getElementById('ean-include-liv');
+  const opts = document.getElementById('ean-liv-options');
+  if (!cb || !opts) return;
+  if (cb.checked) {
+    opts.style.opacity = '1';
+    opts.style.pointerEvents = 'auto';
+  } else {
+    opts.style.opacity = '.4';
+    opts.style.pointerEvents = 'none';
+  }
+}
+
+function onLivTypeChange() {
+  if (!selectedEanWarAll) return;
+  const type = document.getElementById('ean-liv-type').value;
+  document.getElementById('ean-livraison-prix').textContent = formatPrixService(getLivPrixForType(selectedEanWarAll, type));
+}
+
+function onIncludeMontageChange() {
+  // Visuel uniquement
 }
 
 // Active/désactive le bloc options garantie selon le checkbox "inclure"
@@ -1670,7 +1770,8 @@ async function generateILVPython() {
   const includeGar = document.getElementById('ean-include-gar').checked;
   const garantiePrix = includeGar ? (parseFloat(document.getElementById('ean-garantie-prix').value) || 0) : 0;
   const includeLiv = document.getElementById('ean-include-liv').checked;
-  const livraisonPrix = (selectedEanWarAll && includeLiv) ? (selectedEanWarAll.livraison || 0) : 0;
+  const livType = document.getElementById('ean-liv-type').value;
+  const livraisonPrix = (selectedEanWarAll && includeLiv) ? getLivPrixForType(selectedEanWarAll, livType) : 0;
 
   const btn = document.getElementById('btn-gen-python');
   const status = document.getElementById('btn-gen-status');
@@ -1728,8 +1829,11 @@ function addEanProduct() {
   // Si la garantie n'est pas cochée → garantie = 0 (variante "sans" sera utilisée)
   const includeGar = document.getElementById('ean-include-gar').checked;
   const garantie = includeGar ? (parseFloat(document.getElementById('ean-garantie-prix').value) || 0) : 0;
-  const livPrix = selectedEanWarAll ? selectedEanWarAll.livraison : 0;
   const includeLiv = document.getElementById('ean-include-liv').checked;
+  const livType = document.getElementById('ean-liv-type').value;
+  const livPrix = selectedEanWarAll ? getLivPrixForType(selectedEanWarAll, livType) : 0;
+  const includeMontage = document.getElementById('ean-include-montage').checked;
+  const montagePrix = (selectedEanWarAll && includeMontage) ? (selectedEanWarAll.montage || 0) : 0;
   const defaultCredit = determineDefaultCredit(p.prix, p.universILV);
   const credits = {};
   if (defaultCredit) credits[defaultCredit] = true;
@@ -1745,7 +1849,10 @@ function addEanProduct() {
     universILV: p.universILV || '',
     garantie,
     livraison: livPrix,
+    livType,
     includeLiv,
+    montage: montagePrix,
+    includeMontage,
     credits
   });
 
@@ -1822,8 +1929,8 @@ function onManualFieldChange() {
     const bestLevel = manualWarAll.gar2 > 0 ? 2 : (manualWarAll.gar1 > 0 ? 1 : 0);
     document.getElementById('m-garantie-level').value = bestLevel;
     document.getElementById('m-garantie').value = pickGarantie(manualWarAll, bestLevel);
-    document.getElementById('m-livraison').value = manualWarAll.livraison;
-    document.getElementById('m-livraison-display').textContent = formatPrixService(manualWarAll.livraison);
+    // Livraison type options
+    refreshManualLivOptions();
   }
 }
 
@@ -1834,6 +1941,43 @@ function onManualGarantieLevelChange() {
 }
 
 document.getElementById('m-prix').addEventListener('change', onManualFieldChange);
+
+function refreshManualLivOptions() {
+  if (!manualWarAll) return;
+  const w = manualWarAll;
+  const sel = document.getElementById('m-liv-type');
+  sel.querySelector('option[value="dom"]').style.display = w.livDom > 0 ? '' : 'none';
+  sel.querySelector('option[value="pdp"]').style.display = w.livPdP > 0 ? '' : 'none';
+  sel.querySelector('option[value="ensPdP"]').style.display = w.livEnsPdP > 0 ? '' : 'none';
+  sel.querySelector('option[value="ensDom"]').style.display = w.livEnsDom > 0 ? '' : 'none';
+  sel.value = w.livDom > 0 ? 'dom' : (w.livPdP > 0 ? 'pdp' : 'dom');
+  const prix = getLivPrixForType(w, sel.value);
+  document.getElementById('m-livraison').value = prix;
+  document.getElementById('m-livraison-display').textContent = formatPrixService(prix);
+  // Montage
+  const montageRow = document.getElementById('m-montage-row');
+  if (w.montage > 0) {
+    montageRow.style.display = 'block';
+    document.getElementById('m-montage-display').textContent = formatPrixService(w.montage);
+    document.getElementById('m-include-montage').checked = false;
+  } else {
+    montageRow.style.display = 'none';
+  }
+}
+
+function onManualLivChange() {
+  const cb = document.getElementById('m-include-liv');
+  const sel = document.getElementById('m-liv-type');
+  sel.disabled = !cb.checked;
+}
+
+function onManualLivTypeChange() {
+  if (!manualWarAll) return;
+  const type = document.getElementById('m-liv-type').value;
+  const prix = getLivPrixForType(manualWarAll, type);
+  document.getElementById('m-livraison').value = prix;
+  document.getElementById('m-livraison-display').textContent = formatPrixService(prix);
+}
 
 function addManualProduct() {
   const designation = document.getElementById('m-designation').value.trim();
@@ -1853,6 +1997,10 @@ function addManualProduct() {
   const credits = {};
   if (defaultCredit) credits[defaultCredit] = true;
 
+  const livType = document.getElementById('m-liv-type').value;
+  const includeMontage = document.getElementById('m-include-montage') ? document.getElementById('m-include-montage').checked : false;
+  const montagePrix = (manualWarAll && includeMontage) ? (manualWarAll.montage || 0) : 0;
+
   const ean = document.getElementById('m-ean').value.trim();
   cart.push({
     id: Date.now() + Math.random(),
@@ -1865,7 +2013,10 @@ function addManualProduct() {
     universILV: univers,
     garantie,
     livraison,
+    livType,
     includeLiv,
+    montage: montagePrix,
+    includeMontage,
     credits
   });
 
@@ -1876,7 +2027,10 @@ function addManualProduct() {
   document.getElementById('m-garantie').value = '0';
   document.getElementById('m-livraison').value = '0';
   document.getElementById('m-include-liv').checked = false;
+  document.getElementById('m-liv-type').disabled = true;
   document.getElementById('m-livraison-display').textContent = '0,00\u20AC';
+  document.getElementById('m-montage-row').style.display = 'none';
+  if (document.getElementById('m-include-montage')) document.getElementById('m-include-montage').checked = false;
   manualWarAll = null;
 
   renderCart();
@@ -1950,8 +2104,11 @@ function renderCart() {
     }).join('');
 
     const livChecked = item.includeLiv ? ' checked' : '';
+    const livTypeLabel = {pdp:'PdP', dom:'Dom', ensPdP:'Ens.PdP', ensDom:'Ens.Dom'}[item.livType] || '';
     const livCell = item.livraison > 0
-      ? '<label class="cb-inline"><input type="checkbox" onchange="toggleLiv(' + idx + ',this.checked)"' + livChecked + '> ' + formatPrixService(item.livraison) + '</label>'
+      ? '<label class="cb-inline"><input type="checkbox" onchange="toggleLiv(' + idx + ',this.checked)"' + livChecked + '> ' + formatPrixService(item.livraison) + '</label>' +
+        (livTypeLabel ? '<br><span style="font-size:9px;color:#888;">' + livTypeLabel + '</span>' : '') +
+        (item.montage > 0 && item.includeMontage ? '<br><span style="font-size:9px;color:#a8e6c1;">+montage ' + formatPrixService(item.montage) + '</span>' : '')
       : '<span style="color:#777;">-</span>';
 
     return '<tr>' +
@@ -1988,9 +2145,11 @@ function updateCartPrice(idx, val) {
   // Re-lookup warranty
   const item = cart[idx];
   if (item.universILV && item.rayonILV) {
-    const wInfo = lookupWarranty(item.universILV, item.rayonILV, item.prix);
-    item.garantie = wInfo.garantie;
-    item.livraison = wInfo.livraison;
+    const warAll = lookupWarrantyAll(item.universILV, item.rayonILV, item.prix);
+    const level = bestAvailableLevel(warAll);
+    item.garantie = pickGarantie(warAll, level >= 3 ? 2 : level);
+    item.livraison = getLivPrixForType(warAll, item.livType || 'dom');
+    item.montage = warAll.montage || 0;
   }
   renderCart();
 }
@@ -2340,7 +2499,7 @@ async function generateBatchILV() {
     const ct = CREDIT_TYPES[creditKey];
     const warAll = lookupWarrantyAll(p.universILV, p.rayonILV, p.prix);
     const garantie = pickGarantie(warAll, garLevel);
-    const livraison = warAll.livraison;
+    const livraison = warAll.livDom > 0 ? warAll.livDom : (warAll.livPdP > 0 ? warAll.livPdP : 0);
 
     const item = {
       ean: p.ean || '',
