@@ -1432,7 +1432,7 @@ _A3_ZONES = {
     "prix_livraison":  (262, 783, 360, 807),   # prix livraison (gar_liv)
     "prix_garantie_gl":(719, 782, 815, 806),   # prix garantie (gar_liv)
     "prix_garantie_g": (505, 741, 625, 770),   # prix garantie (gar seule)
-    "badge_ir":        (580, 185, 760, 240),   # badge intérêts remboursés (10x,20x) — centré dans le cercle blanc
+    "badge_ir":        (620, 200, 753, 245),   # badge intérêts remboursés (10x,20x) — centré sur cx=686.5, fit cercle
 }
 
 # Baselines fixes pour les valeurs alignées sur un label statique (size, x, baseline_y)
@@ -1598,7 +1598,7 @@ def generate_a3_pdf(slug, variant, designation, calc, montant_finance,
         badge_num = f"{int(interets)}" if cents == 0 else f"{int(interets)},{cents:02d}"
         badge_text = badge_num + " €"
         _draw_fitted(page, font, badge_text, Z["badge_ir"], _COL_RED,
-                     max_size=52, align="center", fill_h=1.0)
+                     max_size=48, align="center", fill_h=1.0, fill_w=1.0)
 
     # Mentions légales — boîte du bas, AU-DESSUS des logos BUT/Cetelem (y=1111).
     # On cherche la plus grande taille qui tient (≤9) sans déborder sur les logos.
