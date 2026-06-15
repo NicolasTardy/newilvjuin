@@ -1439,8 +1439,8 @@ _A3_ZONES = {
 _A3_FIXED = {
     "taeg":           dict(x=184, baseline=614, size=22, max_w=170),   # à droite de "TAEG fixe :"
     "montant":        dict(x=240, baseline=654, size=22, max_w=245),   # à droite de "Montant total dû :"
-    "liv":            dict(x=262, baseline=805, size=27, max_w=120),   # après "Livraison à" (baseline label ≈805)
-    "gar_gl":         dict(x=719, baseline=804, size=27, max_w=120),   # après "Garantie ... à" (gar_liv)
+    "liv":            dict(x=262, baseline=803, size=22, max_w=110),   # après "Livraison à" (baseline label ≈805)
+    "gar_gl":         dict(x=719, baseline=803, size=22, max_w=115),   # après "Garantie ... à" (gar_liv)
     "gar_g":          dict(x=507, baseline=765, size=28, max_w=115),   # après "Garantie ... à" (gar)
 }
 
