@@ -977,7 +977,7 @@ async function adminExcelGenerate() {
     formData.append('file', file);
     formData.append('gar_level', garLevel);
 
-    const resp = await fetch('/api/admin/generate-from-excel', {
+    const resp = await fetch('api/admin/generate-from-excel', {
       method: 'POST',
       headers: { 'X-Admin-Password': password },
       body: formData
@@ -1902,7 +1902,7 @@ async function generateILVPython() {
   status.textContent = '';
 
   try {
-    const resp = await fetch('/api/generate-ilv', {
+    const resp = await fetch('api/generate-ilv', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2183,7 +2183,7 @@ function previewManualProduct() {
   };
 
   document.getElementById('preview-container').style.display = 'none';
-  fetch('/api/generate-ilv-preview', {
+  fetch('api/generate-ilv-preview', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(item)
@@ -2331,7 +2331,7 @@ async function generateCartPython() {
   status.textContent = items.length + ' ILV…';
 
   try {
-    const resp = await fetch('/api/generate-ilv-batch', {
+    const resp = await fetch('api/generate-ilv-batch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(items),
