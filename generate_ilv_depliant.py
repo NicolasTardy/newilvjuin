@@ -165,6 +165,7 @@ STRATEGIE_ILV = [
 CREDIT_TYPES = {
     "5x_sf":  {"label": "5× Sans Frais",          "duree": 5,  "famille": "gratuit", "variants": ["gar", "sans"]},
     "10x_ir": {"label": "10× Int. Remboursés",     "duree": 10, "famille": "ir",      "variants": ["gar", "gar_liv", "sans"]},
+    "10x_sf": {"label": "10× Sans Frais",          "duree": 10, "famille": "gratuit", "variants": ["gar", "gar_liv", "sans"]},
     "20x_ir": {"label": "20× Int. Remboursés",     "duree": 20, "famille": "ir",      "variants": ["gar", "gar_liv", "sans"]},
     "36x_si": {"label": "36× Services Inclus",     "duree": 36, "famille": "payant",  "variants": ["gar", "gar_liv", "sans"]},
     "48x_si": {"label": "48× Services Inclus",     "duree": 48, "famille": "payant",  "variants": ["gar", "gar_liv", "sans"]},
@@ -172,7 +173,7 @@ CREDIT_TYPES = {
 }
 
 CREDITKEY_TO_SLUG = {
-    "5x_sf": "5x", "10x_ir": "10x", "20x_ir": "20x",
+    "5x_sf": "5x", "10x_ir": "10x", "10x_sf": "10xsf", "20x_ir": "20x",
     "36x_si": "36x", "48x_si": "48x", "60x_si": "60x",
 }
 
@@ -212,6 +213,24 @@ TAUX_DEBITEUR = {
 
 TAEG_FICTIF_5X     = 8.44  # Mis à jour 04/05/2026
 TAUX_DEBITEUR_5X   = 8.13  # Mis à jour 04/05/2026
+
+# 10× Sans Frais (soldes été 2026) — coût pris en charge par le magasin.
+# Valeurs de l'exemple des mentions légales (docx 885 - 10XSF).
+TAEG_FICTIF_10XSF     = 4.52
+TAUX_DEBITEUR_10XSF   = 4.43
+DATE_OFFRE_10XSF      = "du 24/06/2026 au 21/07/2026"      # mentions légales
+DATE_OFFRE_10XSF_HAUT = "Du 24/06 au 21/07/2026"          # bandeau en haut de l'ILV
+DATE_CONDITIONS_10XSF = "01/01/2026"
+# Fenêtre d'accès à l'offre 10× Sans Frais (format ISO pour comparaison)
+PROMO_10XSF_DEBUT     = "2026-06-24"
+PROMO_10XSF_FIN       = "2026-07-21"
+
+
+def promo_10xsf_active(today: str = None) -> bool:
+    """True si la date du jour (ISO yyyy-mm-dd) est dans la fenêtre de l'offre 10× Sans Frais."""
+    import datetime
+    d = today or datetime.date.today().isoformat()
+    return PROMO_10XSF_DEBUT <= d <= PROMO_10XSF_FIN
 
 # Table de surcharge assurance DIM (Décès, Invalidité, Maladie-Accident)
 # Source : feuille « Calcul » du fichier EASY PLV BUT, colonne X (DIM).
@@ -538,8 +557,10 @@ def calculer_credit(duree, famille, montant_finance):
     tranche = determiner_tranche(montant_finance)
     taeg = TAEG[duree][tranche]
     if famille == "gratuit":
+        # Sans frais → TAEG affiché toujours 0 % (5x_sf, 10x_sf...). La table
+        # TAEG[duree] peut contenir une autre valeur (ex: 10x partagé avec l'IR).
         mensualite = round(montant_finance / duree, 2)
-        return {"mensualite": mensualite, "taeg": taeg, "cout_credit": 0,
+        return {"mensualite": mensualite, "taeg": "0 %", "cout_credit": 0,
                 "montant_total_du": montant_finance, "interets_rembourses": None}
     tdf = TAUX_DEBITEUR[duree][tranche] / 100  # ex: 14.10 → 0.141
     r = tdf / 12  # taux mensuel proportionnel
@@ -1019,6 +1040,28 @@ def generer_ml_text(slug: str, duree: int, famille: str,
             + _CETELEM_A + " " + _BUT_PUB
         )
 
+    if slug == "10xsf":
+        # 10× Sans Frais (soldes été 2026) — coût pris en charge par le magasin (comme 5x).
+        interets_fictifs = round(
+            montant_finance * (TAUX_DEBITEUR_10XSF / 100 / 12) * ((duree + 1) / 2)
+        )
+        taeg_f_fmt = f"{TAEG_FICTIF_10XSF:.2f}".replace(".", ",")
+        tdb_f_fmt  = f"{TAUX_DEBITEUR_10XSF:.2f}".replace(".", ",")
+        return (
+            "Offre de credit accessoire a une vente de 160EUR a 25 000EUR sur une duree de 10 mois, "
+            "pour un achat de 160EUR a 25 000EUR. Le cout du credit est pris en charge par votre magasin. "
+            "Taux Annuel Effectif Global fixe (TAEG) : 0 %. "
+            f"Offre valable {DATE_OFFRE_10XSF}. "
+            f"Exemple pour un achat et un credit accessoire a une vente de {mf_fmt} EUR "
+            f"sur 10 mois, vous remboursez 10 mensualites de {mens_fmt} EUR. "
+            f"Montant total du (par l'emprunteur) : {total_fmt} EUR. "
+            f"Le cout du credit (TAEG fixe : {taeg_f_fmt} %, "
+            f"taux debiteur fixe de {tdb_f_fmt} %, "
+            f"interets : {interets_fictifs} EUR) est pris en charge par votre magasin. "
+            f"Conditions au {DATE_CONDITIONS_10XSF}. "
+            + _CETELEM_A + " " + _BUT_PUB
+        )
+
     cout_fmt = fmt_ml(calc["cout_credit"])
 
     if slug == "10x":
@@ -1161,6 +1204,7 @@ A3_TEMPLATES_DIR = BASE_DIR / "PDF_MODIFIABLES_CREDIT"
 A3_TEMPLATE_FILES = {
     "5x":  "5X-A3/BDX_2610-DIVERS-ILV-CREDIT-5X-A3",
     "10x": "10X-A3/BDX_2610-DIVERS-ILV-CREDIT-10X-A3",
+    "10xsf": "10X sans frais/BDX_2610-DIVERS-ILV-CREDIT-10X-SOLDES-ETE-A3",
     "20x": "20X-A3/BDX_2610-DIVERS-ILV-CREDIT-20X-A3",
     "36x": "36X-A3/BDX_2610-DIVERS-ILV-CREDIT-36X-A3",
     "48x": "48X-A3/BDX_2610-DIVERS-ILV-CREDIT-48X-A3",
@@ -1278,7 +1322,11 @@ def _a3_compute_values(slug, variant, designation, calc, montant_finance,
         return f"{v:.2f}%".replace(".", ",")
 
     tranche = determiner_tranche(montant_finance)
-    taeg    = TAEG[duree][tranche].replace(" %", "%")
+    # Sans frais (5x_sf, 10x_sf...) → TAEG affiché 0 % (calc fait foi), sinon table.
+    if famille == "gratuit":
+        taeg = "0%"
+    else:
+        taeg = TAEG[duree][tranche].replace(" %", "%")
     tdb     = TAUX_DEBITEUR[duree][tranche]
 
     mens         = calc["mensualite"]
@@ -1599,6 +1647,11 @@ def generate_a3_pdf(slug, variant, designation, calc, montant_finance,
         badge_text = badge_num + " €"
         _draw_fitted(page, font, badge_text, Z["badge_ir"], _COL_RED,
                      max_size=48, align="center", fill_h=1.0, fill_w=1.0)
+
+    # Bandeau de validité de l'offre 10× Sans Frais — en haut à droite (zone beige).
+    if slug == "10xsf":
+        _draw_fitted(page, font, DATE_OFFRE_10XSF_HAUT, (550, 76, 806, 114),
+                     _COL_RED, max_size=24, align="center")
 
     # Mentions légales — boîte du bas, AU-DESSUS des logos BUT/Cetelem (y=1111).
     # On cherche la plus grande taille qui tient (≤9) sans déborder sur les logos.

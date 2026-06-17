@@ -602,6 +602,7 @@ const TAEG = {
 const CREDIT_TYPES = {
   "5x_sf":  { label: "5\u00D7 Sans Frais", duree: 5, famille: "gratuit", variants: ["gar", "sans"] },
   "10x_ir": { label: "10\u00D7 Int. Rembours\u00E9s", duree: 10, famille: "ir", variants: ["gar", "gar_liv", "sans"] },
+  "10x_sf": { label: "10\u00D7 Sans Frais", duree: 10, famille: "gratuit", variants: ["gar", "gar_liv", "sans"] },
   "20x_ir": { label: "20\u00D7 Int. Rembours\u00E9s", duree: 20, famille: "ir", variants: ["gar", "gar_liv", "sans"] },
   "36x_si": { label: "36\u00D7 Services Inclus", duree: 36, famille: "payant", variants: ["gar", "gar_liv", "sans"] },
   "48x_si": { label: "48\u00D7 Services Inclus", duree: 48, famille: "payant", variants: ["gar", "gar_liv", "sans"] },
@@ -612,6 +613,7 @@ const CREDIT_TYPES = {
 const CREDITKEY_TO_SLUG = {
   "5x_sf":  "5x",
   "10x_ir": "10x",
+  "10x_sf": "10xsf",
   "20x_ir": "20x",
   "36x_si": "36x",
   "48x_si": "48x",
@@ -619,6 +621,13 @@ const CREDITKEY_TO_SLUG = {
 };
 // Variant → PDF page number
 const VARIANT_TO_PAGE = { "gar": 1, "gar_liv": 2, "sans": 3 };
+
+// Fenêtre d'accès à l'offre 10× Sans Frais (soldes été 2026)
+const PROMO_10XSF = { debut: "2026-06-24", fin: "2026-07-21", label: "Du 24/06 au 21/07/2026" };
+function is10xsfActif() {
+  const t = new Date().toISOString().slice(0, 10);
+  return t >= PROMO_10XSF.debut && t <= PROMO_10XSF.fin;
+}
 
 // In-memory cache: { slug: { champs, pdfDoc } }
 let champsAll = null;
@@ -1397,8 +1406,9 @@ function calculerCredit(duree, famille, montant_finance) {
   const taeg = TAEG[duree][tranche];
 
   if (famille === "gratuit" || COEFF_MENSUELS[duree][tranche] === null) {
+    // Sans frais → TAEG affiché toujours 0 % (5x_sf, 10x_sf...).
     const mensualite = montant_finance / duree;
-    return { mensualite: Math.round(mensualite * 100) / 100, taeg, cout_credit: 0, montant_total_du: montant_finance, interets_rembourses: null };
+    return { mensualite: Math.round(mensualite * 100) / 100, taeg: "0 %", cout_credit: 0, montant_total_du: montant_finance, interets_rembourses: null };
   }
 
   const coeff = COEFF_MENSUELS[duree][tranche];
@@ -2217,8 +2227,10 @@ function renderCart() {
   bodyEl.innerHTML = cart.map((item, idx) => {
     const creditCBs = Object.keys(CREDIT_TYPES).map(ck => {
       const ct = CREDIT_TYPES[ck];
-      // Plafond légal : 5× sans frais limité à 3 000 €
-      const disabled = (ck === '5x_sf' && item.prix > 3000) ? ' disabled title="5× limité à 3 000 €"' : '';
+      // Plafond légal : 5× sans frais limité à 3 000 € · 10× sans frais limité à la fenêtre soldes
+      const disabled = (ck === '5x_sf' && item.prix > 3000) ? ' disabled title="5× limité à 3 000 €"'
+        : (ck === '10x_sf' && !is10xsfActif()) ? ' disabled title="Offre valable ' + PROMO_10XSF.label + '"'
+        : '';
       const checked = (item.credits[ck] && !disabled) ? ' checked' : '';
       return '<label style="display:inline-flex;align-items:center;gap:3px;margin-right:8px;font-size:11px;white-space:nowrap;color:' + (disabled ? '#555' : '#bbb') + ';">' +
         '<input type="checkbox" data-idx="' + idx + '" data-ck="' + ck + '" onchange="toggleCredit(' + idx + ',\'' + ck + '\',this.checked)"' + checked + disabled + '>' +
@@ -2248,6 +2260,11 @@ function toggleCredit(idx, ck, checked) {
   // Plafond légal : 5× sans frais limité à 3 000 €
   if (checked && ck === '5x_sf' && cart[idx].prix > 3000) {
     alert('Le 5× sans frais est limité à 3 000 € maximum.');
+    return;
+  }
+  // 10× sans frais : accessible uniquement pendant la fenêtre de l'offre
+  if (checked && ck === '10x_sf' && !is10xsfActif()) {
+    alert('Le 10× sans frais n\'est accessible que du 24/06 au 21/07/2026.');
     return;
   }
   if (checked) cart[idx].credits[ck] = true;
