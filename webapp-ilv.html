@@ -2232,9 +2232,13 @@ function renderCart() {
         : (ck === '10x_sf' && !is10xsfActif()) ? ' disabled title="Offre valable ' + PROMO_10XSF.label + '"'
         : '';
       const checked = (item.credits[ck] && !disabled) ? ' checked' : '';
+      // 10× sans frais : afficher la fenêtre de disponibilité à côté de la case
+      const promoTag = (ck === '10x_sf')
+        ? '<span style="font-size:9px;color:#e74c3c;margin-left:2px;">(24/06→21/07)</span>'
+        : '';
       return '<label style="display:inline-flex;align-items:center;gap:3px;margin-right:8px;font-size:11px;white-space:nowrap;color:' + (disabled ? '#555' : '#bbb') + ';">' +
         '<input type="checkbox" data-idx="' + idx + '" data-ck="' + ck + '" onchange="toggleCredit(' + idx + ',\'' + ck + '\',this.checked)"' + checked + disabled + '>' +
-        ct.label + '</label>';
+        ct.label + promoTag + '</label>';
     }).join('');
 
     const livChecked = item.includeLiv ? ' checked' : '';
