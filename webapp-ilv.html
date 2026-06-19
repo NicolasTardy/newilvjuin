@@ -187,6 +187,7 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
       <div style="text-align:center;margin-top:16px;display:flex;gap:10px;justify-content:center;">
         <button class="btn btn-primary" id="btn-admin-upload" disabled onclick="adminUpload()">Envoyer la base articles</button>
         <button class="btn btn-primary" id="btn-depliant-upload" disabled onclick="adminUploadDepliant()" style="background:#e67e22;">Envoyer le d&eacute;pliant</button>
+        <button class="btn" id="btn-depliant-delete" onclick="adminDeleteDepliant()" style="background:#c0392b;color:#fff;" title="Supprime la base d&eacute;pliant (p&eacute;riode termin&eacute;e)">🗑 Supprimer le d&eacute;pliant</button>
       </div>
       <div id="admin-status" style="font-size:13px;margin-top:10px;text-align:center;display:none;"></div>
     </div>
@@ -933,6 +934,39 @@ async function adminUploadDepliant() {
   } catch(ex) {
     statusEl.style.color = '#e74c3c';
     statusEl.textContent = 'Erreur dépliant : ' + ex.message;
+  }
+}
+
+async function adminDeleteDepliant() {
+  const statusEl = document.getElementById('admin-status');
+  const password = document.getElementById('admin-password').value;
+  if (!password) { alert('Saisissez le mot de passe admin.'); return; }
+  if (!confirm('Supprimer définitivement la base dépliant actuelle ?\n(Une sauvegarde récupérable est conservée côté serveur.)')) return;
+
+  statusEl.style.display = 'block';
+  statusEl.style.color = '#999';
+  statusEl.textContent = 'Suppression du dépliant...';
+  try {
+    const resp = await fetch('api/admin/delete-depliant', {
+      method: 'POST',
+      headers: { 'X-Admin-Password': password }
+    });
+    if (!resp.ok) {
+      const msg = await resp.text();
+      throw new Error(msg || ('Erreur ' + resp.status));
+    }
+    const res = await resp.json();
+    // Vide la source dépliant en mémoire + rafraîchit l'UI
+    depliantProducts = [];
+    if (typeof populateCascadeDepliant === 'function') populateCascadeDepliant();
+    const banner = document.getElementById('depliant-banner');
+    if (banner) banner.style.display = 'none';
+    statusEl.style.color = '#27ae60';
+    const removed = (res.removed && res.removed.length) ? res.removed.join(', ') : 'rien à supprimer';
+    statusEl.textContent = 'Dépliant supprimé (' + removed + '). Sauvegarde conservée.';
+  } catch(ex) {
+    statusEl.style.color = '#e74c3c';
+    statusEl.textContent = 'Erreur suppression dépliant : ' + ex.message;
   }
 }
 

@@ -114,6 +114,20 @@ def upload_depliant():
     return {"ok": True, "count": len(payload)}
 
 
+@app.post("/api/admin/delete-depliant")
+def delete_depliant():
+    """Supprime la base dépliant (json + xlsx) quand la période promo est finie.
+    Une sauvegarde récupérable du json est conservée dans data/backups/."""
+    _check_auth()
+    _rotate_backup(DEPLIANT_PATH, "depliant")  # filet de sécurité avant suppression
+    removed = []
+    for p in (DEPLIANT_PATH, DATA_DIR / "depliant.xlsx"):
+        if p.exists():
+            p.unlink()
+            removed.append(p.name)
+    return {"ok": True, "removed": removed}
+
+
 # ── Génération PDF : logique partagée ─────────────────────────────────────────
 
 def _generate_one(item: dict) -> list[tuple[str, bytes]]:
