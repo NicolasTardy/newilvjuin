@@ -221,16 +221,7 @@ TAUX_DEBITEUR_10XSF   = 4.43
 DATE_OFFRE_10XSF      = "du 24/06/2026 au 21/07/2026"      # mentions légales
 DATE_OFFRE_10XSF_HAUT = "Du 24/06 au 21/07/2026"          # bandeau en haut de l'ILV
 DATE_CONDITIONS_10XSF = "01/01/2026"
-# Fenêtre d'accès à l'offre 10× Sans Frais (format ISO pour comparaison)
-PROMO_10XSF_DEBUT     = "2026-06-24"
-PROMO_10XSF_FIN       = "2026-07-21"
-
-
-def promo_10xsf_active(today: str = None) -> bool:
-    """True si la date du jour (ISO yyyy-mm-dd) est dans la fenêtre de l'offre 10× Sans Frais."""
-    import datetime
-    d = today or datetime.date.today().isoformat()
-    return PROMO_10XSF_DEBUT <= d <= PROMO_10XSF_FIN
+# Période de validité de l'offre 10× Sans Frais (affichée sur l'ILV, génération libre).
 
 # Table de surcharge assurance DIM (Décès, Invalidité, Maladie-Accident)
 # Source : feuille « Calcul » du fichier EASY PLV BUT, colonne X (DIM).

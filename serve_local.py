@@ -163,9 +163,8 @@ def _generate_one(item: dict) -> list[tuple[str, bytes]]:
     if credit_key == "5x_sf" and prix > 3000:
         raise ValueError("Le 5× sans frais est limité à 3 000 € maximum")
 
-    # 10× sans frais : accessible uniquement pendant la fenêtre de l'offre (soldes été)
-    if credit_key == "10x_sf" and not gen.promo_10xsf_active():
-        raise ValueError(f"Le 10× sans frais n'est accessible que {gen.DATE_OFFRE_10XSF}")
+    # 10× sans frais : génération libre. La période de validité reste affichée
+    # sur l'ILV (bandeau + mentions légales) et signalée à côté de la case.
 
     ct      = gen.CREDIT_TYPES[credit_key]
     duree   = ct["duree"]
