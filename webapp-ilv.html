@@ -242,6 +242,7 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
     <div class="tabs">
       <div class="tab-btn active" onclick="switchTab('dropdown')">S&eacute;lection EAN</div>
       <div class="tab-btn" onclick="switchTab('manual')">Saisie manuelle</div>
+      <div class="tab-btn" onclick="switchTab('scan')">&#128298; Scan magasin</div>
     </div>
 
     <!-- Dropdown EAN tab -->
@@ -410,6 +411,21 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
           <button onclick="document.getElementById('preview-container').style.display='none'" style="background:none;border:none;color:#ddd;cursor:pointer;font-weight:700;">✕</button>
         </div>
         <iframe id="preview-iframe" style="width:100%;height:600px;border:none;" src=""></iframe>
+      </div>
+    </div>
+
+    <!-- Scan magasin tab -->
+    <div class="tab-content" id="tab-scan">
+      <div style="background:#16213e;border:1px solid #2c3e6b;border-radius:8px;padding:18px;">
+        <div style="font-size:13px;color:#9aa3ab;margin-bottom:10px;line-height:1.5;">
+          &#128298; Douche un code-barres avec le pistolet &mdash; le produit s'ajoute au panier avec ses valeurs par d&eacute;faut (<b>jamais de livraison</b>).<br>
+          Cr&eacute;dit automatique par prix ; pendant la p&eacute;riode du 10&times; Sans Frais (24/06&rarr;21/07), le <b>10&times; Sans Frais remplace le 10&times; IR</b>.
+        </div>
+        <input type="text" id="scan-input" placeholder="Scanne un EAN ici&hellip;" autocomplete="off" onkeydown="onScanKey(event)"
+               style="width:100%;font-size:20px;padding:14px;border:2px solid #c0392b;border-radius:8px;background:#0f1626;color:#fff;letter-spacing:1px;">
+        <div id="scan-feedback" style="margin-top:12px;font-size:14px;min-height:22px;font-weight:600;"></div>
+        <div style="margin-top:10px;font-size:11px;color:#777;">Historique des scans (le plus r&eacute;cent en haut) :</div>
+        <div id="scan-log" style="margin-top:4px;font-size:12px;max-height:240px;overflow:auto;border-top:1px solid #2c3e6b;padding-top:6px;"></div>
       </div>
     </div>
   </div>
@@ -624,7 +640,12 @@ const CREDITKEY_TO_SLUG = {
 const VARIANT_TO_PAGE = { "gar": 1, "gar_liv": 2, "sans": 3 };
 
 // Période de validité de l'offre 10× Sans Frais (affichée à côté de la case ; usage libre)
-const PROMO_10XSF = { label: "Du 24/06 au 21/07/2026", labelCourt: "24/06 au 21/07/2026" };
+const PROMO_10XSF = { debut: "2026-06-23", fin: "2026-07-21", label: "Du 24/06 au 21/07/2026", labelCourt: "24/06 au 21/07/2026" };
+// Fenêtre d'activité du 10× Sans Frais (utilisée par le mode Scan pour remplacer le 10× IR)
+function is10xsfActif() {
+  const t = new Date().toISOString().slice(0, 10);
+  return t >= PROMO_10XSF.debut && t <= PROMO_10XSF.fin;
+}
 
 // In-memory cache: { slug: { champs, pdfDoc } }
 let champsAll = null;
@@ -1485,11 +1506,87 @@ function formatMensualite(montant) {
 // UI: TABS
 // ============================================================
 function switchTab(tab) {
+  const idx = { dropdown: 0, manual: 1, scan: 2 };
   document.querySelectorAll('.tab-btn').forEach((b, i) => {
-    b.classList.toggle('active', (tab === 'dropdown' && i === 0) || (tab === 'manual' && i === 1));
+    b.classList.toggle('active', i === idx[tab]);
   });
   document.getElementById('tab-dropdown').classList.toggle('active', tab === 'dropdown');
   document.getElementById('tab-manual').classList.toggle('active', tab === 'manual');
+  document.getElementById('tab-scan').classList.toggle('active', tab === 'scan');
+  if (tab === 'scan') {
+    setTimeout(() => { const s = document.getElementById('scan-input'); if (s) { s.value = ''; s.focus(); } }, 50);
+  }
+}
+
+// ============================================================
+// MODE SCAN MAGASIN (pistolet douchette)
+// ============================================================
+function onScanKey(e) {
+  if (e.key !== 'Enter') return;     // le pistolet envoie Entrée en fin de scan
+  e.preventDefault();
+  const inp = document.getElementById('scan-input');
+  const raw = (inp.value || '').trim();
+  inp.value = '';
+  if (raw) addByScan(raw);
+}
+
+function scanLog(msg, color) {
+  const log = document.getElementById('scan-log');
+  if (!log) return;
+  const d = document.createElement('div');
+  d.style.cssText = 'padding:2px 0;color:' + (color || '#aaa') + ';';
+  const t = new Date().toLocaleTimeString();
+  d.textContent = t + '  ' + msg;
+  log.prepend(d);
+}
+
+function addByScan(rawEan) {
+  const fb = document.getElementById('scan-feedback');
+  const ean = normalizeEan(rawEan);
+  const p = ean ? products.find(x => normalizeEan(x.ean) === ean) : null;
+  if (!p) {
+    fb.innerHTML = '<span style="color:#e74c3c;">&#10007; EAN ' + escH(rawEan) + ' introuvable dans la base.</span>';
+    scanLog('✗ ' + rawEan + ' introuvable', '#e74c3c');
+    return;
+  }
+  if (cart.some(c => normalizeEan(c.ean) === ean)) {
+    fb.innerHTML = '<span style="color:#e67e22;">&#9888; ' + escH(p.designation) + ' &mdash; déjà au panier.</span>';
+    scanLog('⚠ ' + p.designation + ' (déjà au panier)', '#e67e22');
+    return;
+  }
+  // Crédit auto par prix + substitution 10x IR -> 10x SF pendant la fenêtre
+  let credit = determineDefaultCredit(p.prix, p.universILV);
+  if (credit === '10x_ir' && is10xsfActif()) credit = '10x_sf';
+  // Garantie par défaut : rien sur 5x/10x, 3★ (sinon meilleure dispo) à partir du 20x
+  const warAll = lookupWarrantyAll(p.universILV, p.rayonILV, p.prix);
+  const best = bestAvailableLevel(warAll);
+  const lvl = warAll.gar2 > 0 ? 2 : (best === 3 ? 1 : best);
+  const garPrix = pickGarantie(warAll, lvl);
+  const garInclus = !!credit && !credit.startsWith('5x') && !credit.startsWith('10x') && garPrix > 0;
+  const credits = {}; if (credit) credits[credit] = true;
+  cart.push({
+    id: Date.now() + Math.random(),
+    ean: p.ean || '',
+    designation: p.designation,
+    prix: p.prix,
+    domaine: p.domaine,
+    rayon: p.rayon,
+    rayonILV: p.rayonILV || '',
+    universILV: p.universILV || '',
+    garantie: garInclus ? garPrix : 0,
+    livraison: 0,
+    livType: 'dom',
+    includeLiv: false,          // JAMAIS de livraison en scan
+    montage: 0,
+    includeMontage: false,
+    credits
+  });
+  const lib = (CREDIT_TYPES[credit] && CREDIT_TYPES[credit].label) || credit || '(aucun crédit)';
+  fb.innerHTML = '<span style="color:#27ae60;">&#10003; ' + escH(p.designation) + ' &middot; ' + formatMontant(p.prix) +
+    ' &rarr; ' + escH(lib) + (garInclus ? ' + garantie ' + formatPrixService(garPrix) : '') +
+    '  <span style="color:#888;">(' + cart.length + ' au panier)</span></span>';
+  scanLog('✓ ' + p.designation + ' → ' + lib + (garInclus ? ' +gar' : ''), '#27ae60');
+  renderCart();
 }
 
 // ============================================================
