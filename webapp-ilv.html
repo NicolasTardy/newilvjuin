@@ -430,6 +430,31 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
     </div>
   </div>
 
+  <!-- Séries d'impression (NOUVEAU) -->
+  <div class="panel">
+    <h2>S&eacute;ries d'impression <span style="background:#27ae60;color:#fff;font-size:11px;font-weight:700;padding:2px 9px;border-radius:10px;vertical-align:middle;margin-left:8px;letter-spacing:.5px;">NOUVEAU</span></h2>
+    <p style="font-size:13px;color:#9aa3ab;line-height:1.6;margin:2px 0 14px;">
+      G&eacute;n&egrave;re <b style="color:#ddd;">toutes les ILV d'un coup</b> selon des filtres (domaine, gamme, rayon, famille, prix), puis t&eacute;l&eacute;charge-les en <b style="color:#ddd;">un seul ZIP</b>.<br>
+      Cr&eacute;dit d&eacute;termin&eacute; automatiquement par prix <span style="color:#e67e22;">(10&times; &rarr; 10&times; Sans Frais quand actif)</span>, garantie selon la r&egrave;gle, <b style="color:#ddd;">jamais de livraison</b>.
+    </p>
+    <div class="batch-config">
+      <div><label>Domaine</label><select id="serie-domaine" onchange="onSerieDomaine()"><option value="">-- Tous --</option></select></div>
+      <div><label>Gamme</label><select id="serie-gamme" onchange="onSerieGamme()"><option value="">-- Toutes --</option></select></div>
+      <div><label>Rayon</label><select id="serie-rayon" onchange="onSerieRayon()"><option value="">-- Tous --</option></select></div>
+      <div><label>Famille</label><select id="serie-famille" onchange="refreshSerie()"><option value="">-- Toutes --</option></select></div>
+      <div><label>Prix mini (&euro;)</label><input type="number" id="serie-pmin" step="1" min="0" value="400" onchange="refreshSerie()"></div>
+      <div><label>Prix maxi (&euro;)</label><input type="number" id="serie-pmax" step="1" min="0" placeholder="&mdash;" onchange="refreshSerie()"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px;margin-top:12px;flex-wrap:wrap;">
+      <div style="background:#16213e;border-radius:8px;padding:10px 16px;">
+        <div style="font-size:11px;color:#8a9199;">Produits concern&eacute;s</div>
+        <div style="font-size:22px;font-weight:700;color:#fff;"><span id="serie-count">&mdash;</span> <span style="font-size:12px;color:#9aa3ab;font-weight:400;">&rarr; ILV</span></div>
+      </div>
+      <button class="btn btn-primary" id="btn-serie" onclick="generateSerie()" style="background:#c0392b;">&#11015; G&eacute;n&eacute;rer et t&eacute;l&eacute;charger la s&eacute;rie (ZIP)</button>
+    </div>
+    <div id="serie-status" style="font-size:13px;margin-top:10px;min-height:18px;"></div>
+  </div>
+
   <!-- Batch from listing -->
   <div class="panel">
     <h2>G&eacute;n&eacute;ration par listing</h2>
@@ -1745,6 +1770,8 @@ function populateCascadeDomaine() {
     opt.textContent = d + ' (' + count + ')';
     sel.appendChild(opt);
   });
+  // Remplit aussi les filtres de la section "Séries d'impression"
+  if (typeof populateSerieDomaine === 'function') populateSerieDomaine();
 }
 
 function populateCascadeRayon() {
@@ -2429,6 +2456,120 @@ function makePdfFilename(item, creditKey, variant) {
   const ean = (item.ean || 'sans-ean').replace(/[^a-zA-Z0-9]/g, '_');
   const famille = (item.famille || item.rayonILV || 'autre').replace(/[^a-zA-Z0-9àâäéèêëïîôùûüç()-]/gi, '_');
   return famille + '_' + ean + '_' + creditKey + '_' + variant + '.pdf';
+}
+
+// ============================================================
+// SÉRIES D'IMPRESSION (génération filtrée en masse → ZIP)
+// ============================================================
+function serieFilters() {
+  return {
+    dom:   document.getElementById('serie-domaine').value,
+    gamme: document.getElementById('serie-gamme').value,
+    rayon: document.getElementById('serie-rayon').value,
+    fam:   document.getElementById('serie-famille').value,
+    pmin:  parseFloat(document.getElementById('serie-pmin').value) || 0,
+    pmax:  parseFloat(document.getElementById('serie-pmax').value) || Infinity,
+  };
+}
+function fillSerieSelect(id, field, pred, label) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  const cur = sel.value;
+  const set = new Set();
+  products.forEach(p => { if (p.universILV && p[field] && pred(p)) set.add(String(p[field]).trim()); });
+  const vals = [...set].sort((a, b) => {
+    const na = parseFloat(a), nb = parseFloat(b);
+    if (!isNaN(na) && /^\d/.test(a) && !isNaN(nb) && /^\d/.test(b)) return na - nb;
+    return a.localeCompare(b);
+  });
+  sel.innerHTML = '<option value="">' + label + '</option>' +
+    vals.map(v => '<option value="' + v.replace(/"/g, '&quot;') + '"' + (v === cur ? ' selected' : '') + '>' + escH(v) + '</option>').join('');
+}
+function populateSerieDomaine() {
+  if (!document.getElementById('serie-domaine')) return;
+  fillSerieSelect('serie-domaine', 'domaine', () => true, '-- Tous les domaines --');
+  onSerieDomaine();
+}
+function onSerieDomaine() {
+  const f = serieFilters();
+  fillSerieSelect('serie-gamme', 'gamme', p => !f.dom || p.domaine === f.dom, '-- Toutes les gammes --');
+  onSerieGamme();
+}
+function onSerieGamme() {
+  const f = serieFilters();
+  fillSerieSelect('serie-rayon', 'rayon', p => (!f.dom || p.domaine === f.dom) && (!f.gamme || String(p.gamme).trim() === f.gamme), '-- Tous les rayons --');
+  onSerieRayon();
+}
+function onSerieRayon() {
+  const f = serieFilters();
+  fillSerieSelect('serie-famille', 'famille', p => (!f.dom || p.domaine === f.dom) && (!f.gamme || String(p.gamme).trim() === f.gamme) && (!f.rayon || p.rayon === f.rayon), '-- Toutes les familles --');
+  refreshSerie();
+}
+function serieProducts() {
+  const f = serieFilters();
+  return products.filter(p => {
+    if (!p.universILV) return false;
+    if (f.dom && p.domaine !== f.dom) return false;
+    if (f.gamme && String(p.gamme).trim() !== f.gamme) return false;
+    if (f.rayon && p.rayon !== f.rayon) return false;
+    if (f.fam && p.famille !== f.fam) return false;
+    const pr = parseFloat(p.prix) || 0;
+    if (pr < f.pmin || pr > f.pmax) return false;
+    return !!determineDefaultCredit(pr, p.universILV);
+  });
+}
+function refreshSerie() {
+  const el = document.getElementById('serie-count');
+  if (el) el.textContent = serieProducts().length;
+}
+async function generateSerie() {
+  const prods = serieProducts();
+  if (!prods.length) { alert('Aucun produit ne correspond aux filtres.'); return; }
+  if (prods.length > 300 && !confirm('Générer ' + prods.length + ' ILV ?\nCela peut prendre 1 à 2 minutes et produire un ZIP volumineux.')) return;
+  const items = prods.map(p => {
+    let credit = determineDefaultCredit(p.prix, p.universILV);
+    if (credit === '10x_ir' && is10xsfActif()) credit = '10x_sf';
+    const warAll = lookupWarrantyAll(p.universILV, p.rayonILV, p.prix);
+    const best = bestAvailableLevel(warAll);
+    const lvl = warAll.gar2 > 0 ? 2 : (best === 3 ? 1 : best);
+    const garPrix = pickGarantie(warAll, lvl);
+    const garInclus = !!credit && !credit.startsWith('5x') && !credit.startsWith('10x') && garPrix > 0;
+    return {
+      designation: p.designation, prix: p.prix,
+      rayon_ilv: p.rayonILV || p.rayon || '', univers_ilv: p.universILV || '',
+      ean: p.ean || '', credit_key: credit,
+      include_garantie: garInclus, garantie_prix: garInclus ? garPrix : 0,
+      include_livraison: false, livraison_prix: 0,
+    };
+  }).filter(it => it.credit_key);
+  const btn = document.getElementById('btn-serie');
+  const status = document.getElementById('serie-status');
+  const old = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Génération…';
+  status.style.color = '#9aa3ab';
+  status.textContent = 'Génération de ' + items.length + ' ILV en cours… (peut prendre 1 à 2 min, ne ferme pas l\'onglet)';
+  try {
+    const resp = await fetch('api/generate-ilv-batch', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(items),
+    });
+    if (!resp.ok) { const e = await resp.json().catch(() => ({ error: resp.statusText })); throw new Error(e.error || resp.statusText); }
+    const errH = resp.headers.get('X-ILV-Errors');
+    const errs = errH ? JSON.parse(errH) : [];
+    const blob = await resp.blob();
+    const f = serieFilters();
+    let name = [f.dom, f.rayon, f.fam].filter(Boolean).join('_').replace(/[^a-zA-Z0-9_-]/g, '-');
+    name = 'ILV_serie_' + (name || 'tous');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name + '.zip';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
+    status.style.color = '#27ae60';
+    status.textContent = '✓ ' + items.length + ' ILV générées — ZIP téléchargé (' + name + '.zip)' + (errs.length ? ' · ' + errs.length + ' erreur(s)' : '');
+  } catch (e) {
+    status.style.color = '#e74c3c';
+    status.textContent = '❌ Erreur : ' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = old;
+  }
 }
 
 async function generateCartPython() {
