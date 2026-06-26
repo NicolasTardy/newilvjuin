@@ -2381,7 +2381,7 @@ function renderCart() {
   wrapEl.style.display = 'block';
 
   bodyEl.innerHTML = cart.map((item, idx) => {
-    const creditCBs = Object.keys(CREDIT_TYPES).map(ck => {
+    const creditCBs = Object.keys(CREDIT_TYPES).filter(ck => ck !== '60x_si').map(ck => {
       const ct = CREDIT_TYPES[ck];
       // Plafond légal : 5× sans frais limité à 3 000 €
       const disabled = (ck === '5x_sf' && item.prix > 3000) ? ' disabled title="5× limité à 3 000 €"' : '';
