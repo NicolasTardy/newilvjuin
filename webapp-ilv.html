@@ -175,8 +175,8 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
 
       <!-- Depliant -->
       <div class="upload-zone" id="uz-depliant" style="margin-top:10px;" onclick="document.getElementById('file-depliant').click()">
-        <input type="file" id="file-depliant" accept=".xlsx,.xls">
-        <div class="uz-label">🗞 Fichier d&eacute;pliant publicitaire (.xlsx)</div>
+        <input type="file" id="file-depliant" accept=".xlsx,.xls" multiple>
+        <div class="uz-label">🗞 Fichier(s) d&eacute;pliant publicitaire (.xlsx) &mdash; plusieurs possibles</div>
         <div class="uz-name" id="uz-depliant-name">Aucun fichier</div>
       </div>
 
@@ -786,12 +786,16 @@ function setupAdmin() {
   });
 
   document.getElementById('file-depliant').addEventListener('change', function(e) {
-    const f = e.target.files[0];
-    if (f) {
-      document.getElementById('uz-depliant-name').textContent = f.name;
+    const fs = Array.from(e.target.files || []);
+    if (fs.length) {
+      document.getElementById('uz-depliant-name').textContent =
+        fs.length === 1 ? fs[0].name : fs.length + ' fichiers : ' + fs.map(f => f.name).join(', ');
       document.getElementById('uz-depliant').classList.add('has-file');
+    } else {
+      document.getElementById('uz-depliant-name').textContent = 'Aucun fichier';
+      document.getElementById('uz-depliant').classList.remove('has-file');
     }
-    document.getElementById('btn-depliant-upload').disabled = !f;
+    document.getElementById('btn-depliant-upload').disabled = !fs.length;
   });
 
   // Check current base
@@ -898,16 +902,21 @@ async function adminUpload() {
 async function adminUploadDepliant() {
   const statusEl = document.getElementById('admin-status');
   const password = document.getElementById('admin-password').value;
-  const file = document.getElementById('file-depliant').files[0];
-  if (!file) return;
+  const files = Array.from(document.getElementById('file-depliant').files || []);
+  if (!files.length) return;
 
   statusEl.style.display = 'block';
   statusEl.style.color = '#999';
-  statusEl.textContent = 'Analyse du fichier dépliant...';
+  statusEl.textContent = files.length > 1
+    ? 'Analyse de ' + files.length + ' fichiers dépliant...'
+    : 'Analyse du fichier dépliant...';
 
   try {
-    const data = await readFileAsArrayBuffer(file);
-    parseDepliantArticles(data);
+    depliantProducts = [];
+    for (const f of files) {
+      const data = await readFileAsArrayBuffer(f);
+      parseDepliantArticles(data, true);
+    }
 
     const isLocal = ['localhost','127.0.0.1',''].includes(location.hostname);
 
@@ -1235,11 +1244,12 @@ function parseBaseArticles(data) {
 // En-têtes en row 2 (row 1 vide), data à partir de row 3
 // Logique prix : si aujourd'hui ∈ [DEBUT, FIN] → PV PUB, sinon → PV FDR
 // ============================================================
-function parseDepliantArticles(data) {
+function parseDepliantArticles(data, append) {
+  const existing = append ? depliantProducts.slice() : [];
   const wb = XLSX.read(data, { type: 'array' });
   const ws = wb.Sheets[wb.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-  if (rows.length < 3) { depliantProducts = []; return; }
+  if (rows.length < 3) { depliantProducts = existing; return; }
 
   // Auto-détection ligne d'en-têtes (row 0 ou row 1)
   const tryHeaders = (idx) => idx < rows.length ? rows[idx].map(h => String(h).trim()) : [];
@@ -1266,7 +1276,7 @@ function parseDepliantArticles(data) {
 
   if (iLib < 0 || iMedia < 0 || iPVPub < 0) {
     console.warn('parseDepliantArticles: colonnes manquantes (LIB PDTS / MEDIA / PV PUB)');
-    depliantProducts = [];
+    depliantProducts = existing;
     return;
   }
 
@@ -1278,7 +1288,7 @@ function parseDepliantArticles(data) {
     const d = new Date(v); return isNaN(d) ? null : d;
   };
 
-  depliantProducts = [];
+  depliantProducts = existing;
   for (let r = dataStart; r < rows.length; r++) {
     const row = rows[r];
     const designation = String(row[iLib] || '').trim();
@@ -1290,9 +1300,9 @@ function parseDepliantArticles(data) {
     const dateFin = iFin >= 0 ? toDate(row[iFin]) : null;
 
     // Sélection du prix : PV PUB si on est dans la fenêtre, sinon PV FDR
-    // Souplesse : on bascule sur PV PUB dès J-1 du début pour préparer les ILV
+    // Souplesse : on bascule sur PV PUB dès 72h (J-3) avant le début pour préparer les ILV à l'avance
     let dGrace = null;
-    if (dateDebut) { dGrace = new Date(dateDebut); dGrace.setDate(dGrace.getDate() - 1); }
+    if (dateDebut) { dGrace = new Date(dateDebut); dGrace.setDate(dGrace.getDate() - 3); }
     const inWindow = dGrace && dateFin && dGrace <= today && today <= dateFin;
     let prix;
     if (inWindow && !isNaN(pvPub) && pvPub > 0) prix = pvPub;
