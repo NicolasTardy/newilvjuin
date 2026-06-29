@@ -244,6 +244,7 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
       <div class="tab-btn" onclick="switchTab('manual')">Saisie manuelle</div>
       <div class="tab-btn" onclick="switchTab('scan')">&#128290; Scan magasin</div>
       <div class="tab-btn" onclick="switchTab('serie')"><span style="background:#27ae60;color:#fff;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px;margin-right:6px;letter-spacing:.5px;">NOUVEAU</span>Impression en s&eacute;rie</div>
+      <div class="tab-btn" onclick="switchTab('depliant')">&#128478; Impression d&eacute;pliant</div>
     </div>
 
     <!-- Dropdown EAN tab -->
@@ -452,6 +453,26 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
         <button class="btn btn-primary" id="btn-serie" onclick="generateSerie()" style="background:#c0392b;">&#11015; G&eacute;n&eacute;rer et t&eacute;l&eacute;charger la s&eacute;rie (ZIP)</button>
       </div>
       <div id="serie-status" style="font-size:13px;margin-top:10px;min-height:18px;"></div>
+    </div>
+
+    <!-- Impression dépliant tab -->
+    <div class="tab-content" id="tab-depliant">
+      <p style="font-size:13px;color:#9aa3ab;line-height:1.6;margin:2px 0 12px;">
+        G&eacute;n&egrave;re <b style="color:#ddd;">toutes les ILV du d&eacute;pliant charg&eacute;</b> (prix promo) en <b style="color:#ddd;">un seul ZIP</b>, &agrave; partir d'un prix minimum.<br>
+        Cr&eacute;dit auto par prix <span style="color:#e67e22;">(10&times; &rarr; 10&times; Sans Frais quand actif)</span>, garantie selon la r&egrave;gle, <b style="color:#ddd;">jamais de livraison</b>.
+      </p>
+      <div id="dep-info" style="font-size:12px;color:#e67e22;margin-bottom:12px;">&mdash;</div>
+      <div class="batch-config">
+        <div><label>Prix mini (&euro;)</label><input type="number" id="dep-pmin" step="1" min="0" value="400" onchange="refreshDepliantSerie()"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;margin-top:12px;flex-wrap:wrap;">
+        <div style="background:#16213e;border-radius:8px;padding:10px 16px;">
+          <div style="font-size:11px;color:#8a9199;">Produits du d&eacute;pliant concern&eacute;s</div>
+          <div style="font-size:22px;font-weight:700;color:#fff;"><span id="dep-count">&mdash;</span> <span style="font-size:12px;color:#9aa3ab;font-weight:400;">&rarr; ILV</span></div>
+        </div>
+        <button class="btn btn-primary" id="btn-dep" onclick="generateDepliantSerie()" style="background:#e67e22;">&#11015; G&eacute;n&eacute;rer les ILV du d&eacute;pliant (ZIP)</button>
+      </div>
+      <div id="dep-status" style="font-size:13px;margin-top:10px;min-height:18px;"></div>
     </div>
   </div>
 
@@ -1531,7 +1552,7 @@ function formatMensualite(montant) {
 // UI: TABS
 // ============================================================
 function switchTab(tab) {
-  const idx = { dropdown: 0, manual: 1, scan: 2, serie: 3 };
+  const idx = { dropdown: 0, manual: 1, scan: 2, serie: 3, depliant: 4 };
   document.querySelectorAll('.tab-btn').forEach((b, i) => {
     b.classList.toggle('active', i === idx[tab]);
   });
@@ -1539,10 +1560,12 @@ function switchTab(tab) {
   document.getElementById('tab-manual').classList.toggle('active', tab === 'manual');
   document.getElementById('tab-scan').classList.toggle('active', tab === 'scan');
   document.getElementById('tab-serie').classList.toggle('active', tab === 'serie');
+  document.getElementById('tab-depliant').classList.toggle('active', tab === 'depliant');
   if (tab === 'scan') {
     setTimeout(() => { const s = document.getElementById('scan-input'); if (s) { s.value = ''; s.focus(); } }, 50);
   }
   if (tab === 'serie' && typeof refreshSerie === 'function') refreshSerie();
+  if (tab === 'depliant' && typeof refreshDepliantSerie === 'function') refreshDepliantSerie();
 }
 
 // ============================================================
@@ -2566,6 +2589,73 @@ async function generateSerie() {
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
     status.style.color = '#27ae60';
     status.textContent = '✓ ' + items.length + ' ILV générées — ZIP téléchargé (' + name + '.zip)' + (errs.length ? ' · ' + errs.length + ' erreur(s)' : '');
+  } catch (e) {
+    status.style.color = '#e74c3c';
+    status.textContent = '❌ Erreur : ' + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = old;
+  }
+}
+
+// ============================================================
+// IMPRESSION DÉPLIANT (génération en masse depuis le dépliant)
+// ============================================================
+function depliantFilteredProducts() {
+  const pmin = parseFloat(document.getElementById('dep-pmin').value) || 0;
+  return depliantProducts.filter(p => {
+    if (!p.universILV) return false;
+    const pr = parseFloat(p.prix) || 0;
+    if (pr < pmin) return false;
+    return !!determineDefaultCredit(pr, p.universILV);
+  });
+}
+function refreshDepliantSerie() {
+  const info = document.getElementById('dep-info');
+  const cnt = document.getElementById('dep-count');
+  if (info) info.textContent = depliantProducts.length
+    ? (depliantProducts.length + ' produits dans le dépliant chargé')
+    : 'Aucun dépliant chargé — charge-le d\'abord via le mode Admin.';
+  if (cnt) cnt.textContent = depliantProducts.length ? depliantFilteredProducts().length : '0';
+}
+async function generateDepliantSerie() {
+  if (!depliantProducts.length) { alert('Aucun dépliant chargé. Charge-le via le mode Admin.'); return; }
+  const prods = depliantFilteredProducts();
+  if (!prods.length) { alert('Aucun produit du dépliant au-dessus du prix mini.'); return; }
+  if (prods.length > 300 && !confirm('Générer ' + prods.length + ' ILV depuis le dépliant ?\nCela peut prendre 1 à 2 minutes.')) return;
+  const items = prods.map(p => {
+    let credit = determineDefaultCredit(p.prix, p.universILV);
+    if (credit === '10x_ir' && is10xsfActif()) credit = '10x_sf';
+    const warAll = lookupWarrantyAll(p.universILV, p.rayonILV, p.prix);
+    const best = bestAvailableLevel(warAll);
+    const lvl = warAll.gar2 > 0 ? 2 : (best === 3 ? 1 : best);
+    const garPrix = pickGarantie(warAll, lvl);
+    const garInclus = !!credit && !credit.startsWith('5x') && !credit.startsWith('10x') && garPrix > 0;
+    return {
+      designation: p.designation, prix: p.prix,
+      rayon_ilv: p.rayonILV || p.rayon || '', univers_ilv: p.universILV || '',
+      ean: p.ean || '', credit_key: credit,
+      include_garantie: garInclus, garantie_prix: garInclus ? garPrix : 0,
+      include_livraison: false, livraison_prix: 0,
+    };
+  }).filter(it => it.credit_key);
+  const btn = document.getElementById('btn-dep');
+  const status = document.getElementById('dep-status');
+  const old = btn.textContent;
+  btn.disabled = true; btn.textContent = 'Génération…';
+  status.style.color = '#9aa3ab';
+  status.textContent = 'Génération de ' + items.length + ' ILV en cours… (peut prendre 1 à 2 min, ne ferme pas l\'onglet)';
+  try {
+    const resp = await fetch('api/generate-ilv-batch', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(items),
+    });
+    if (!resp.ok) { const e = await resp.json().catch(() => ({ error: resp.statusText })); throw new Error(e.error || resp.statusText); }
+    const errs = JSON.parse(resp.headers.get('X-ILV-Errors') || '[]');
+    const blob = await resp.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'ILV_depliant.zip';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
+    status.style.color = '#27ae60';
+    status.textContent = '✓ ' + items.length + ' ILV générées — ZIP téléchargé (ILV_depliant.zip)' + (errs.length ? ' · ' + errs.length + ' erreur(s)' : '');
   } catch (e) {
     status.style.color = '#e74c3c';
     status.textContent = '❌ Erreur : ' + e.message;
