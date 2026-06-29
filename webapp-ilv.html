@@ -463,6 +463,7 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
       </p>
       <div id="dep-info" style="font-size:12px;color:#e67e22;margin-bottom:12px;">&mdash;</div>
       <div class="batch-config">
+        <div><label>N&deg; d&eacute;pliant (m&eacute;dia)</label><select id="dep-media" onchange="refreshDepliantSerie()"><option value="">-- Tous --</option></select></div>
         <div><label>Prix mini (&euro;)</label><input type="number" id="dep-pmin" step="1" min="0" value="400" onchange="refreshDepliantSerie()"></div>
       </div>
       <div style="display:flex;align-items:center;gap:14px;margin-top:12px;flex-wrap:wrap;">
@@ -2600,21 +2601,42 @@ async function generateSerie() {
 // ============================================================
 // IMPRESSION DÉPLIANT (génération en masse depuis le dépliant)
 // ============================================================
+function depliantMedias() {
+  return [...new Set(depliantProducts.map(p => p.media).filter(v => v != null && v !== ''))].sort();
+}
+function populateDepMedia() {
+  const sel = document.getElementById('dep-media');
+  if (!sel) return;
+  const cur = sel.value;
+  const counts = {};
+  depliantProducts.forEach(p => { const m = (p.media != null && p.media !== '') ? String(p.media) : ''; if (m) counts[m] = (counts[m] || 0) + 1; });
+  const medias = Object.keys(counts).sort();
+  sel.innerHTML = '<option value="">-- Tous les dépliants --</option>' +
+    medias.map(m => '<option value="' + m + '"' + (m === cur ? ' selected' : '') + '>N° ' + m + ' (' + counts[m] + ' produits)</option>').join('');
+}
 function depliantFilteredProducts() {
   const pmin = parseFloat(document.getElementById('dep-pmin').value) || 0;
+  const media = document.getElementById('dep-media') ? document.getElementById('dep-media').value : '';
   return depliantProducts.filter(p => {
     if (!p.universILV) return false;
+    if (media && String(p.media) !== media) return false;
     const pr = parseFloat(p.prix) || 0;
     if (pr < pmin) return false;
     return !!determineDefaultCredit(pr, p.universILV);
   });
 }
 function refreshDepliantSerie() {
+  populateDepMedia();
   const info = document.getElementById('dep-info');
   const cnt = document.getElementById('dep-count');
-  if (info) info.textContent = depliantProducts.length
-    ? (depliantProducts.length + ' produits dans le dépliant chargé')
-    : 'Aucun dépliant chargé — charge-le d\'abord via le mode Admin.';
+  if (info) {
+    if (!depliantProducts.length) {
+      info.textContent = 'Aucun dépliant chargé — charge-le d\'abord via le mode Admin.';
+    } else {
+      const m = depliantMedias();
+      info.textContent = depliantProducts.length + ' produits chargés · dépliant' + (m.length > 1 ? 's' : '') + ' n° ' + m.join(', ');
+    }
+  }
   if (cnt) cnt.textContent = depliantProducts.length ? depliantFilteredProducts().length : '0';
 }
 async function generateDepliantSerie() {
@@ -2651,11 +2673,13 @@ async function generateDepliantSerie() {
     if (!resp.ok) { const e = await resp.json().catch(() => ({ error: resp.statusText })); throw new Error(e.error || resp.statusText); }
     const errs = JSON.parse(resp.headers.get('X-ILV-Errors') || '[]');
     const blob = await resp.blob();
+    const media = document.getElementById('dep-media').value;
+    const zipName = 'ILV_depliant' + (media ? '_' + media : '') + '.zip';
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = 'ILV_depliant.zip';
+    a.href = URL.createObjectURL(blob); a.download = zipName;
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
     status.style.color = '#27ae60';
-    status.textContent = '✓ ' + items.length + ' ILV générées — ZIP téléchargé (ILV_depliant.zip)' + (errs.length ? ' · ' + errs.length + ' erreur(s)' : '');
+    status.textContent = '✓ ' + items.length + ' ILV générées — ZIP téléchargé (' + zipName + ')' + (errs.length ? ' · ' + errs.length + ' erreur(s)' : '');
   } catch (e) {
     status.style.color = '#e74c3c';
     status.textContent = '❌ Erreur : ' + e.message;
