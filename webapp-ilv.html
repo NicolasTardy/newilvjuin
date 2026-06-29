@@ -477,52 +477,6 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
     </div>
   </div>
 
-  <!-- Batch from listing -->
-  <div class="panel">
-    <h2>G&eacute;n&eacute;ration par listing</h2>
-    <div class="batch-config">
-      <div>
-        <label>Source</label>
-        <select id="batch-source" onchange="refreshBatchInfo()">
-          <option value="base">Base articles compl&egrave;te</option>
-          <option value="depliant">D&eacute;pliant charg&eacute;</option>
-        </select>
-      </div>
-      <div>
-        <label>Prix minimum</label>
-        <input type="number" id="batch-prix-min" step="1" min="0" value="300" onchange="refreshBatchInfo()">
-      </div>
-      <div>
-        <label>Niveau de garantie</label>
-        <select id="batch-garantie-level" onchange="refreshBatchInfo()">
-          <option value="2">&#9733;&#9733;&#9733; Garantie 3 &eacute;toiles</option>
-          <option value="1">&#9733; Garantie 1 &eacute;toile</option>
-          <option value="0">Sans garantie</option>
-        </select>
-      </div>
-      <div>
-        <label>Livraison</label>
-        <label class="cb-inline" style="height:34px;"><input type="checkbox" id="batch-include-liv" onchange="refreshBatchInfo()"> Inclure dans la mensualit&eacute;</label>
-      </div>
-    </div>
-    <div class="upload-zone" id="uz-batch" onclick="document.getElementById('file-batch').click()">
-      <input type="file" id="file-batch" accept=".xlsx,.xls,.csv,.txt" onchange="loadBatchFile()">
-      <div class="uz-label">Charger un fichier listing contenant les EAN</div>
-      <div class="uz-name" id="uz-batch-name">Aucun fichier</div>
-    </div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;">
-      <button class="btn btn-secondary" onclick="useBatchAll()">Utiliser toute la source</button>
-      <button class="btn btn-primary" onclick="generateBatchILV()">G&eacute;n&eacute;rer le listing en ZIP</button>
-    </div>
-    <div id="batch-list-info" style="display:none;">
-      <div class="batch-stats" id="batch-stats"></div>
-      <div class="progress-bar-wrap" id="batch-progress-wrap">
-        <div class="progress-bar-fill" id="batch-progress-fill"></div>
-      </div>
-      <div class="progress-text" id="batch-progress-text"></div>
-    </div>
-  </div>
-
   <!-- Cart -->
   <div class="panel">
     <h2>Panier (s&eacute;lection unitaire)</h2>
