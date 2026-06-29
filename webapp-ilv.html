@@ -464,6 +464,7 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
       <div id="dep-info" style="font-size:12px;color:#e67e22;margin-bottom:12px;">&mdash;</div>
       <div class="batch-config">
         <div><label>N&deg; d&eacute;pliant (m&eacute;dia)</label><select id="dep-media" onchange="refreshDepliantSerie()"><option value="">-- Tous --</option></select></div>
+        <div><label>Gamme pub</label><select id="dep-gamme" onchange="refreshDepliantSerie()"><option value="">-- Toutes --</option></select></div>
         <div><label>Prix mini (&euro;)</label><input type="number" id="dep-pmin" step="1" min="0" value="400" onchange="refreshDepliantSerie()"></div>
       </div>
       <div style="display:flex;align-items:center;gap:14px;margin-top:12px;flex-wrap:wrap;">
@@ -2568,12 +2569,33 @@ function populateDepMedia() {
   sel.innerHTML = '<option value="">-- Tous les dépliants --</option>' +
     medias.map(m => '<option value="' + m + '"' + (m === cur ? ' selected' : '') + '>N° ' + m + ' (' + counts[m] + ' produits)</option>').join('');
 }
+function populateDepGamme() {
+  const sel = document.getElementById('dep-gamme');
+  if (!sel) return;
+  const cur = sel.value;
+  const media = document.getElementById('dep-media') ? document.getElementById('dep-media').value : '';
+  const counts = {};
+  depliantProducts.forEach(p => {
+    if (media && String(p.media) !== media) return;
+    const g = (p.gamme != null && p.gamme !== '') ? String(p.gamme).trim() : '';
+    if (g) counts[g] = (counts[g] || 0) + 1;
+  });
+  const gammes = Object.keys(counts).sort((a, b) => {
+    const na = parseFloat(a), nb = parseFloat(b);
+    if (!isNaN(na) && /^\d/.test(a) && !isNaN(nb) && /^\d/.test(b)) return na - nb;
+    return a.localeCompare(b);
+  });
+  sel.innerHTML = '<option value="">-- Toutes les gammes pub --</option>' +
+    gammes.map(g => '<option value="' + g.replace(/"/g, '&quot;') + '"' + (g === cur ? ' selected' : '') + '>' + escH(g) + ' (' + counts[g] + ')</option>').join('');
+}
 function depliantFilteredProducts() {
   const pmin = parseFloat(document.getElementById('dep-pmin').value) || 0;
   const media = document.getElementById('dep-media') ? document.getElementById('dep-media').value : '';
+  const gamme = document.getElementById('dep-gamme') ? document.getElementById('dep-gamme').value : '';
   return depliantProducts.filter(p => {
     if (!p.universILV) return false;
     if (media && String(p.media) !== media) return false;
+    if (gamme && String(p.gamme).trim() !== gamme) return false;
     const pr = parseFloat(p.prix) || 0;
     if (pr < pmin) return false;
     return !!determineDefaultCredit(pr, p.universILV);
@@ -2581,6 +2603,7 @@ function depliantFilteredProducts() {
 }
 function refreshDepliantSerie() {
   populateDepMedia();
+  populateDepGamme();
   const info = document.getElementById('dep-info');
   const cnt = document.getElementById('dep-count');
   if (info) {
@@ -2628,7 +2651,8 @@ async function generateDepliantSerie() {
     const errs = JSON.parse(resp.headers.get('X-ILV-Errors') || '[]');
     const blob = await resp.blob();
     const media = document.getElementById('dep-media').value;
-    const zipName = 'ILV_depliant' + (media ? '_' + media : '') + '.zip';
+    const gamme = document.getElementById('dep-gamme') ? document.getElementById('dep-gamme').value : '';
+    const zipName = 'ILV_depliant' + (media ? '_' + media : '') + (gamme ? '_' + gamme.replace(/[^a-zA-Z0-9_-]/g, '-') : '') + '.zip';
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob); a.download = zipName;
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
