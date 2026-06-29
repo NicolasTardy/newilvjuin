@@ -2626,8 +2626,8 @@ async function generateDepliantSerie() {
     let credit = determineDefaultCredit(p.prix, p.universILV);
     if (credit === '10x_ir' && is10xsfActif()) credit = '10x_sf';
     const warAll = lookupWarrantyAll(p.universILV, p.rayonILV, p.prix);
-    const best = bestAvailableLevel(warAll);
-    const lvl = warAll.gar2 > 0 ? 2 : (best === 3 ? 1 : best);
+    // Dépliant : garantie 1 étoile par défaut (sinon 3★ si pas de 1★ dispo)
+    const lvl = warAll.gar1 > 0 ? 1 : (warAll.gar2 > 0 ? 2 : 0);
     const garPrix = pickGarantie(warAll, lvl);
     const garInclus = !!credit && !credit.startsWith('5x') && !credit.startsWith('10x') && garPrix > 0;
     return {
