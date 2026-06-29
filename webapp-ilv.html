@@ -179,6 +179,10 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
         <div class="uz-label">🗞 Fichier(s) d&eacute;pliant publicitaire (.xlsx) &mdash; plusieurs possibles</div>
         <div class="uz-name" id="uz-depliant-name">Aucun fichier</div>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:13px;color:#bbb;cursor:pointer;">
+        <input type="checkbox" id="dep-cumul" style="width:auto;margin:0;">
+        &#10133; Ajouter au d&eacute;pliant existant (cumuler au lieu de remplacer)
+      </label>
 
       <div style="margin-top:14px;">
         <label style="color:#999;">Mot de passe admin</label>
@@ -905,6 +909,8 @@ async function adminUploadDepliant() {
   const files = Array.from(document.getElementById('file-depliant').files || []);
   if (!files.length) return;
 
+  const cumul = !!(document.getElementById('dep-cumul') && document.getElementById('dep-cumul').checked);
+
   statusEl.style.display = 'block';
   statusEl.style.color = '#999';
   statusEl.textContent = files.length > 1
@@ -912,10 +918,21 @@ async function adminUploadDepliant() {
     : 'Analyse du fichier dépliant...';
 
   try {
-    depliantProducts = [];
+    if (cumul) {
+      // Repart de la base dépliant existante (serveur) puis empile les nouveaux fichiers
+      await loadDepliant();
+    } else {
+      depliantProducts = [];
+    }
+    const baseCount = depliantProducts.length;
     for (const f of files) {
       const data = await readFileAsArrayBuffer(f);
       parseDepliantArticles(data, true);
+    }
+    // Dédoublonnage EAN+média (le dernier importé gagne)
+    depliantProducts = dedupDepliant(depliantProducts);
+    if (cumul) {
+      statusEl.textContent = 'Cumul : ' + baseCount + ' produits existants + nouveaux fichiers → ' + depliantProducts.length + ' au total.';
     }
 
     const isLocal = ['localhost','127.0.0.1',''].includes(location.hostname);
@@ -1244,6 +1261,16 @@ function parseBaseArticles(data) {
 // En-têtes en row 2 (row 1 vide), data à partir de row 3
 // Logique prix : si aujourd'hui ∈ [DEBUT, FIN] → PV PUB, sinon → PV FDR
 // ============================================================
+// Dédoublonne une liste de produits dépliant par EAN+média (dernier importé conservé)
+function dedupDepliant(list) {
+  const map = new Map();
+  for (const p of list) {
+    const id = (p.ean && String(p.ean).trim()) ? String(p.ean).trim() : String(p.designation || '').trim();
+    const key = id + '|' + String(p.media == null ? '' : p.media);
+    map.set(key, p);
+  }
+  return Array.from(map.values());
+}
 function parseDepliantArticles(data, append) {
   const existing = append ? depliantProducts.slice() : [];
   const wb = XLSX.read(data, { type: 'array' });
