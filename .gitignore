@@ -36,3 +36,11 @@ server/**/__pycache__/
 data/backups/
 data/products.json
 data/depliant.json
+cuisine_assets/
+cuisine_test.py
+_batch_gen.py
+exemples_ILV/
+.claude/launch.json
+
+# Fichiers de test locaux 3x SF
+_test_3xsf.py

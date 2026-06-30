@@ -155,7 +155,8 @@ EXCEL_FAMILLE_TO_RAYON_ILV = {
 }
 
 STRATEGIE_ILV = [
-    {"min":   80, "max":  400,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], "credit": "5x_sf"},
+    {"min":   60, "max":  251,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], "credit": "3x_sf"},
+    {"min":  251, "max":  400,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], "credit": "5x_sf"},
     {"min":  400, "max":  900,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], "credit": "10x_ir"},
     {"min":  900, "max": 1500,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], "credit": "20x_ir"},
     {"min": 1500, "max": 4000,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], "credit": "36x_si"},
@@ -163,6 +164,7 @@ STRATEGIE_ILV = [
 ]
 
 CREDIT_TYPES = {
+    "3x_sf":  {"label": "3× Sans Frais",          "duree": 3,  "famille": "gratuit", "variants": ["gar", "gar_liv", "sans"]},
     "5x_sf":  {"label": "5× Sans Frais",          "duree": 5,  "famille": "gratuit", "variants": ["gar", "sans"]},
     "10x_ir": {"label": "10× Int. Remboursés",     "duree": 10, "famille": "ir",      "variants": ["gar", "gar_liv", "sans"]},
     "10x_sf": {"label": "10× Sans Frais",          "duree": 10, "famille": "gratuit", "variants": ["gar", "gar_liv", "sans"]},
@@ -173,6 +175,7 @@ CREDIT_TYPES = {
 }
 
 CREDITKEY_TO_SLUG = {
+    "3x_sf": "3xsf",
     "5x_sf": "5x", "10x_ir": "10x", "10x_sf": "10xsf", "20x_ir": "20x",
     "36x_si": "36x", "48x_si": "48x", "60x_si": "60x",
 }
@@ -181,6 +184,7 @@ CREDITKEY_TO_SLUG = {
 VARIANT_TO_PAGE = {"gar": 1, "gar_liv": 2, "sans": 3}
 
 COEFF_MENSUELS = {
+    3:  {1: None,    2: None,    3: None},
     5:  {1: None,    2: None,    3: None},
     10: {1: 0.10806, 2: 0.10692, 3: 0.10386},
     20: {1: 0.05736, 2: 0.05674, 3: 0.05373},
@@ -190,8 +194,9 @@ COEFF_MENSUELS = {
 }
 
 TAEG = {
-    # 5x = "sans frais" → TAEG affiché = 0 %. Le 8,44 % (TAEG_FICTIF_5X)
+    # 3x / 5x = "sans frais" → TAEG affiché = 0 %. Le taux fictif (TAEG_FICTIF_*)
     # n'apparaît QUE dans l'exemple des mentions légales.
+    3:  {1: "0 %",     2: "0 %",     3: "0 %"},
     5:  {1: "0 %",     2: "0 %",     3: "0 %"},
     10: {1: "18,63 %", 2: "15,73 %", 3: "8,60 %"},
     20: {1: "17,40 %", 2: "15,73 %", 3: "8,60 %"},
@@ -203,6 +208,7 @@ TAEG = {
 # ── Mentions légales — constantes ──────────────────────────────────────────
 
 TAUX_DEBITEUR = {
+    3:  {1: 8.28,  2: 8.28,  3: 8.28},
     5:  {1: 8.13,  2: 8.13,  3: 8.13},
     10: {1: 17.21, 2: 14.70, 3: 8.28},
     20: {1: 16.15, 2: 14.70, 3: 8.28},
@@ -213,6 +219,12 @@ TAUX_DEBITEUR = {
 
 TAEG_FICTIF_5X     = 8.44  # Mis à jour 04/05/2026
 TAUX_DEBITEUR_5X   = 8.13  # Mis à jour 04/05/2026
+
+# 3× Sans Frais — coût pris en charge par le magasin (comme 5x / 10xsf).
+# Valeurs de l'exemple des mentions légales (docx « ML 3 mois sans frais »).
+TAEG_FICTIF_3XSF     = 12.91
+TAUX_DEBITEUR_3XSF   = 12.20
+DATE_CONDITIONS_3XSF = "01/04/2026"
 
 # 10× Sans Frais (soldes été 2026) — coût pris en charge par le magasin.
 # Valeurs de l'exemple des mentions légales (docx 885 - 10XSF).
@@ -1031,6 +1043,27 @@ def generer_ml_text(slug: str, duree: int, famille: str,
             + _CETELEM_A + " " + _BUT_PUB
         )
 
+    if slug == "3xsf":
+        # 3× Sans Frais — coût pris en charge par le magasin (comme 5x / 10xsf).
+        interets_fictifs = round(
+            montant_finance * (TAUX_DEBITEUR_3XSF / 100 / 12) * ((duree + 1) / 2)
+        )
+        taeg_f_fmt = f"{TAEG_FICTIF_3XSF:.2f}".replace(".", ",")
+        tdb_f_fmt  = f"{TAUX_DEBITEUR_3XSF:.2f}".replace(".", ",")
+        return (
+            "Offre de credit accessoire a une vente de 49EUR a 3000EUR sur une duree de 3 mois, "
+            "pour un achat de 49EUR a 3000EUR. Le cout du credit est pris en charge par votre magasin. "
+            "Taux Annuel Effectif Global fixe : 0 %. "
+            f"Exemple pour un achat et un credit accessoire a une vente de {mf_fmt} EUR "
+            f"sur 3 mois, vous remboursez 3 mensualites de {mens_fmt} EUR. "
+            f"Montant total du (par l'emprunteur) : {total_fmt} EUR. "
+            f"Le cout du credit (TAEG fixe : {taeg_f_fmt} %, "
+            f"taux debiteur fixe de {tdb_f_fmt} %, "
+            f"interets : {interets_fictifs} EUR) est pris en charge par votre magasin. "
+            f"Conditions au {DATE_CONDITIONS_3XSF}. "
+            + _CETELEM_A + " " + _BUT_PUB
+        )
+
     if slug == "10xsf":
         # 10× Sans Frais (soldes été 2026) — coût pris en charge par le magasin (comme 5x).
         interets_fictifs = round(
@@ -1193,6 +1226,7 @@ A3_TEMPLATES_DIR = BASE_DIR / "PDF_MODIFIABLES_CREDIT"
 
 # Chaque crédit a son sous-dossier (XY-A3) avec 3 fichiers variant (-1, -2, -3)
 A3_TEMPLATE_FILES = {
+    "3xsf": "3X sans frais/BDX_2610-DIVERS-ILV-CREDIT-3X-A3",
     "5x":  "5X-A3/BDX_2610-DIVERS-ILV-CREDIT-5X-A3",
     "10x": "10X-A3/BDX_2610-DIVERS-ILV-CREDIT-10X-A3",
     "10xsf": "10X sans frais/BDX_2610-DIVERS-ILV-CREDIT-10X-SOLDES-ETE-A3",

@@ -597,7 +597,8 @@ const RAYON_TO_UNIVERS_ILV = {
 };
 
 const STRATEGIE_ILV = [
-  { min:   80, max:  400,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], credit: "5x_sf"  },
+  { min:   60, max:  251,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], credit: "3x_sf"  },
+  { min:  251, max:  400,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], credit: "5x_sf"  },
   { min:  400, max:  900,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], credit: "10x_ir" },
   { min:  900, max: 1500,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], credit: "20x_ir" },
   { min: 1500, max: 4000,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], credit: "36x_si" },
@@ -605,6 +606,7 @@ const STRATEGIE_ILV = [
 ];
 
 const COEFF_MENSUELS = {
+  3: { 1: null, 2: null, 3: null },
   5: { 1: null, 2: null, 3: null },
   10: { 1: 0.10806, 2: 0.10692, 3: 0.10386 },
   20: { 1: 0.05736, 2: 0.05674, 3: 0.05373 },
@@ -614,6 +616,7 @@ const COEFF_MENSUELS = {
 };
 
 const TAEG = {
+  3: { 1: "0 %", 2: "0 %", 3: "0 %" },
   5: { 1: "0 %", 2: "0 %", 3: "0 %" },
   10: { 1: "18,63 %", 2: "15,87 %", 3: "8,67 %" },
   20: { 1: "17,40 %", 2: "15,87 %", 3: "8,67 %" },
@@ -623,6 +626,7 @@ const TAEG = {
 };
 
 const CREDIT_TYPES = {
+  "3x_sf":  { label: "3\u00D7 Sans Frais", duree: 3, famille: "gratuit", variants: ["gar", "gar_liv", "sans"] },
   "5x_sf":  { label: "5\u00D7 Sans Frais", duree: 5, famille: "gratuit", variants: ["gar", "sans"] },
   "10x_ir": { label: "10\u00D7 Int. Rembours\u00E9s", duree: 10, famille: "ir", variants: ["gar", "gar_liv", "sans"] },
   "10x_sf": { label: "10\u00D7 Sans Frais", duree: 10, famille: "gratuit", variants: ["gar", "gar_liv", "sans"] },
@@ -634,6 +638,7 @@ const CREDIT_TYPES = {
 
 // Map creditKey (webapp) → slug (champs_all.json)
 const CREDITKEY_TO_SLUG = {
+  "3x_sf":  "3xsf",
   "5x_sf":  "5x",
   "10x_ir": "10x",
   "10x_sf": "10xsf",
@@ -1605,7 +1610,7 @@ function addByScan(rawEan) {
   const best = bestAvailableLevel(warAll);
   const lvl = warAll.gar2 > 0 ? 2 : (best === 3 ? 1 : best);
   const garPrix = pickGarantie(warAll, lvl);
-  const garInclus = !!credit && !credit.startsWith('5x') && !credit.startsWith('10x') && garPrix > 0;
+  const garInclus = !!credit && !credit.startsWith('3x') && !credit.startsWith('5x') && !credit.startsWith('10x') && garPrix > 0;
   const credits = {}; if (credit) credits[credit] = true;
   cart.push({
     id: Date.now() + Math.random(),
@@ -1958,7 +1963,7 @@ function onEanSelect() {
   // Reset checkboxes : garantie cochée par défaut seulement pour 20x et au-dessus
   const eanDefaultCredit = determineDefaultCredit(p.prix, p.universILV);
   const garAvailable = (defaultLevel > 0 && pickGarantie(selectedEanWarAll, defaultLevel) > 0);
-  const garDefaultChecked = garAvailable && eanDefaultCredit && !eanDefaultCredit.startsWith('5x') && !eanDefaultCredit.startsWith('10x');
+  const garDefaultChecked = garAvailable && eanDefaultCredit && !eanDefaultCredit.startsWith('3x') && !eanDefaultCredit.startsWith('5x') && !eanDefaultCredit.startsWith('10x');
   document.getElementById('ean-include-gar').checked = garDefaultChecked;
   document.getElementById('ean-include-liv').checked = false;
   refreshLivraisonUI();
@@ -2399,8 +2404,9 @@ function renderCart() {
   bodyEl.innerHTML = cart.map((item, idx) => {
     const creditCBs = Object.keys(CREDIT_TYPES).filter(ck => ck !== '60x_si').map(ck => {
       const ct = CREDIT_TYPES[ck];
-      // Plafond légal : 5× sans frais limité à 3 000 €
-      const disabled = (ck === '5x_sf' && item.prix > 3000) ? ' disabled title="5× limité à 3 000 €"' : '';
+      // Plafond légal : 3× et 5× sans frais limités à 3 000 €
+      const disabled = ((ck === '5x_sf' || ck === '3x_sf') && item.prix > 3000)
+        ? ' disabled title="' + (ck === '3x_sf' ? '3×' : '5×') + ' limité à 3 000 €"' : '';
       const checked = (item.credits[ck] && !disabled) ? ' checked' : '';
       // 10× sans frais : libre, mais avertissement sur la période de validité
       const promoTag = (ck === '10x_sf')
@@ -2431,9 +2437,9 @@ function renderCart() {
 }
 
 function toggleCredit(idx, ck, checked) {
-  // Plafond légal : 5× sans frais limité à 3 000 €
-  if (checked && ck === '5x_sf' && cart[idx].prix > 3000) {
-    alert('Le 5× sans frais est limité à 3 000 € maximum.');
+  // Plafond légal : 3× et 5× sans frais limités à 3 000 €
+  if (checked && (ck === '5x_sf' || ck === '3x_sf') && cart[idx].prix > 3000) {
+    alert('Le ' + (ck === '3x_sf' ? '3×' : '5×') + ' sans frais est limité à 3 000 € maximum.');
     return;
   }
   if (checked) cart[idx].credits[ck] = true;
@@ -2446,9 +2452,12 @@ function toggleLiv(idx, checked) {
 
 function updateCartPrice(idx, val) {
   cart[idx].prix = parseFloat(val) || 0;
-  // Plafond 5× : décocher si prix > 3 000 €
+  // Plafond 3× / 5× : décocher si prix > 3 000 €
   if (cart[idx].prix > 3000 && cart[idx].credits['5x_sf']) {
     delete cart[idx].credits['5x_sf'];
+  }
+  if (cart[idx].prix > 3000 && cart[idx].credits['3x_sf']) {
+    delete cart[idx].credits['3x_sf'];
   }
   // Re-lookup warranty
   const item = cart[idx];
@@ -2551,7 +2560,7 @@ async function generateSerie() {
     const best = bestAvailableLevel(warAll);
     const lvl = warAll.gar2 > 0 ? 2 : (best === 3 ? 1 : best);
     const garPrix = pickGarantie(warAll, lvl);
-    const garInclus = !!credit && !credit.startsWith('5x') && !credit.startsWith('10x') && garPrix > 0;
+    const garInclus = !!credit && !credit.startsWith('3x') && !credit.startsWith('5x') && !credit.startsWith('10x') && garPrix > 0;
     return {
       designation: p.designation, prix: p.prix,
       rayon_ilv: p.rayonILV || p.rayon || '', univers_ilv: p.universILV || '',
@@ -2665,7 +2674,7 @@ async function generateDepliantSerie() {
     // Dépliant : garantie 1 étoile par défaut (sinon 3★ si pas de 1★ dispo)
     const lvl = warAll.gar1 > 0 ? 1 : (warAll.gar2 > 0 ? 2 : 0);
     const garPrix = pickGarantie(warAll, lvl);
-    const garInclus = !!credit && !credit.startsWith('5x') && !credit.startsWith('10x') && garPrix > 0;
+    const garInclus = !!credit && !credit.startsWith('3x') && !credit.startsWith('5x') && !credit.startsWith('10x') && garPrix > 0;
     return {
       designation: p.designation, prix: p.prix,
       rayon_ilv: p.rayonILV || p.rayon || '', univers_ilv: p.universILV || '',
@@ -3033,7 +3042,7 @@ async function generateBatchILV() {
 
     const ct = CREDIT_TYPES[creditKey];
     const warAll = lookupWarrantyAll(p.universILV, p.rayonILV, p.prix);
-    const batchGarInclude = !creditKey.startsWith('5x') && !creditKey.startsWith('10x');
+    const batchGarInclude = !creditKey.startsWith('3x') && !creditKey.startsWith('5x') && !creditKey.startsWith('10x');
     const garantie = batchGarInclude ? pickGarantie(warAll, garLevel) : 0;
     const livraison = warAll.livDom > 0 ? warAll.livDom : (warAll.livPdP > 0 ? warAll.livPdP : 0);
 
@@ -3282,6 +3291,7 @@ function buildValuesForPage(payload) {
 
   // Example boilerplate snippets (kept close to the source PDFs' printed examples)
   const exampleByKey = {
+    '3x_sf':  'Exemple : cr\u00e9dit de 150\u00a0\u20ac sur 3 mois \u00b7 3 mensualit\u00e9s de 50,00\u00a0\u20ac',
     '5x_sf':  'Exemple : cr\u00e9dit de 250\u00a0\u20ac sur 5 mois \u00b7 5 mensualit\u00e9s de 50,00\u00a0\u20ac',
     '10x_ir': 'Exemple : cr\u00e9dit de 500\u00a0\u20ac sur 10 mois \u00b7 10 mensualit\u00e9s de 54,03\u00a0\u20ac',
     '20x_ir': 'Exemple : cr\u00e9dit de 1\u00a0000\u00a0\u20ac sur 20 mois \u00b7 20 mensualit\u00e9s de 57,36\u00a0\u20ac',
