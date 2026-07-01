@@ -242,6 +242,24 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
   </div>
   <div class="status-bar" id="status-bar"></div>
 
+  <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center;background:#1b2733;border:1px solid #2c3a47;border-radius:8px;padding:10px 14px;margin-bottom:14px;">
+    <span style="color:#9aa3ab;font-size:12px;font-weight:600;">&#128424; Impression :</span>
+    <label style="color:#cbd3da;font-size:13px;display:flex;align-items:center;gap:6px;">Format
+      <select id="print-format" style="padding:5px 8px;">
+        <option value="A5" selected>A5</option>
+        <option value="A4">A4</option>
+        <option value="A3">A3</option>
+      </select>
+    </label>
+    <label style="color:#cbd3da;font-size:13px;display:flex;align-items:center;gap:6px;">Sortie
+      <select id="print-output" style="padding:5px 8px;">
+        <option value="pdf" selected>PDF unique (1 fichier)</option>
+        <option value="zip">Fichiers s&eacute;par&eacute;s (ZIP)</option>
+      </select>
+    </label>
+    <span style="color:#6b727a;font-size:11px;">A5 = format d'implantation magasin &middot; PDF unique = une seule impression</span>
+  </div>
+
   <div class="panel">
     <div class="tabs">
       <div class="tab-btn active" onclick="switchTab('dropdown')">S&eacute;lection EAN</div>
@@ -2073,6 +2091,13 @@ function refreshGarantieUI() {
   }
 }
 
+// ── Format d'impression + mode de sortie (partagés par tous les téléchargements) ──
+function ilvFmt() { const s = document.getElementById('print-format'); return s ? s.value : 'A5'; }
+function ilvMerge() { const s = document.getElementById('print-output'); return s ? (s.value === 'pdf') : true; }
+function ilvQuery() { return 'fmt=' + encodeURIComponent(ilvFmt()) + '&merge=' + (ilvMerge() ? '1' : '0'); }
+function ilvExt() { return ilvMerge() ? '.pdf' : '.zip'; }
+function ilvModeLabel() { return ilvMerge() ? 'PDF unique' : 'ZIP'; }
+
 async function generateILVPython() {
   if (!selectedEanProduct) { alert('Sélectionnez d\'abord un produit.'); return; }
   const p = selectedEanProduct;
@@ -2089,7 +2114,7 @@ async function generateILVPython() {
   status.textContent = '';
 
   try {
-    const resp = await fetch('api/generate-ilv', {
+    const resp = await fetch('api/generate-ilv?' + ilvQuery(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -2114,7 +2139,7 @@ async function generateILVPython() {
     const a = document.createElement('a');
     a.href = url;
     const eanSafe = (p.ean || p.designation || 'produit').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 20);
-    a.download = 'ILV_' + eanSafe + '.zip';
+    a.download = 'ILV_' + eanSafe + ilvExt();
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -2576,7 +2601,7 @@ async function generateSerie() {
   status.style.color = '#9aa3ab';
   status.textContent = 'Génération de ' + items.length + ' ILV en cours… (peut prendre 1 à 2 min, ne ferme pas l\'onglet)';
   try {
-    const resp = await fetch('api/generate-ilv-batch', {
+    const resp = await fetch('api/generate-ilv-batch?' + ilvQuery(), {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(items),
     });
     if (!resp.ok) { const e = await resp.json().catch(() => ({ error: resp.statusText })); throw new Error(e.error || resp.statusText); }
@@ -2587,10 +2612,10 @@ async function generateSerie() {
     let name = [f.dom, f.rayon, f.fam].filter(Boolean).join('_').replace(/[^a-zA-Z0-9_-]/g, '-');
     name = 'ILV_serie_' + (name || 'tous');
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = name + '.zip';
+    a.href = URL.createObjectURL(blob); a.download = name + ilvExt();
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
     status.style.color = '#27ae60';
-    status.textContent = '✓ ' + items.length + ' ILV générées — ZIP téléchargé (' + name + '.zip)' + (errs.length ? ' · ' + errs.length + ' erreur(s)' : '');
+    status.textContent = '✓ ' + items.length + ' ILV générées (' + ilvFmt() + ', ' + ilvModeLabel() + ') — ' + name + ilvExt() + (errs.length ? ' · ' + errs.length + ' erreur(s)' : '');
   } catch (e) {
     status.style.color = '#e74c3c';
     status.textContent = '❌ Erreur : ' + e.message;
@@ -2690,7 +2715,7 @@ async function generateDepliantSerie() {
   status.style.color = '#9aa3ab';
   status.textContent = 'Génération de ' + items.length + ' ILV en cours… (peut prendre 1 à 2 min, ne ferme pas l\'onglet)';
   try {
-    const resp = await fetch('api/generate-ilv-batch', {
+    const resp = await fetch('api/generate-ilv-batch?' + ilvQuery(), {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(items),
     });
     if (!resp.ok) { const e = await resp.json().catch(() => ({ error: resp.statusText })); throw new Error(e.error || resp.statusText); }
@@ -2698,12 +2723,12 @@ async function generateDepliantSerie() {
     const blob = await resp.blob();
     const media = document.getElementById('dep-media').value;
     const gamme = document.getElementById('dep-gamme') ? document.getElementById('dep-gamme').value : '';
-    const zipName = 'ILV_depliant' + (media ? '_' + media : '') + (gamme ? '_' + gamme.replace(/[^a-zA-Z0-9_-]/g, '-') : '') + '.zip';
+    const outName = 'ILV_depliant' + (media ? '_' + media : '') + (gamme ? '_' + gamme.replace(/[^a-zA-Z0-9_-]/g, '-') : '') + ilvExt();
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = zipName;
+    a.href = URL.createObjectURL(blob); a.download = outName;
     document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(a.href);
     status.style.color = '#27ae60';
-    status.textContent = '✓ ' + items.length + ' ILV générées — ZIP téléchargé (' + zipName + ')' + (errs.length ? ' · ' + errs.length + ' erreur(s)' : '');
+    status.textContent = '✓ ' + items.length + ' ILV générées (' + ilvFmt() + ', ' + ilvModeLabel() + ') — ' + outName + (errs.length ? ' · ' + errs.length + ' erreur(s)' : '');
   } catch (e) {
     status.style.color = '#e74c3c';
     status.textContent = '❌ Erreur : ' + e.message;
@@ -2768,25 +2793,40 @@ async function generateCartPython() {
     const errorsHeader = resp.headers.get('X-ILV-Errors');
     const batchErrors  = errorsHeader ? JSON.parse(errorsHeader) : [];
 
-    const zipBlob = await resp.blob();
+    const outBlob = await resp.blob();
+    const isMerge = ilvMerge();
+    const genCount = parseInt(resp.headers.get('X-ILV-Count') || '0', 10) || items.length;
 
-    // Extraire et afficher les PDFs dans la page
-    const zip = await JSZip.loadAsync(zipBlob);
+    // Construire la liste des PDF à afficher (ZIP décompressé, ou PDF unique multi-pages)
+    let pdfList = [];
+    if (isMerge) {
+      pdfList = [{ filename: 'ILV — PDF unique', bytes: new Uint8Array(await outBlob.arrayBuffer()) }];
+    } else {
+      const zip = await JSZip.loadAsync(outBlob);
+      for (const [filename, entry] of Object.entries(zip.files)) {
+        if (entry.dir) continue;
+        pdfList.push({ filename, bytes: await entry.async('uint8array') });
+      }
+    }
+
     const output = document.getElementById('output');
     output.innerHTML = '';
 
     // Bouton téléchargement
+    const outName = 'ILV_' + new Date().toISOString().slice(0, 10) + ilvExt();
     const dlWrap = document.createElement('div');
     dlWrap.style.cssText = 'text-align:center;margin:20px 0 30px;';
     const dlBtn = document.createElement('button');
     dlBtn.className = 'btn btn-primary';
     dlBtn.style.background = '#8e44ad';
-    dlBtn.textContent = '⬇ Télécharger le ZIP (' + Object.keys(zip.files).length + ' fichiers)';
+    dlBtn.textContent = isMerge
+      ? '⬇ Télécharger le PDF unique (' + genCount + ' ILV · ' + ilvFmt() + ')'
+      : '⬇ Télécharger le ZIP (' + pdfList.length + ' fichiers · ' + ilvFmt() + ')';
     dlBtn.onclick = () => {
-      const url = URL.createObjectURL(zipBlob);
+      const url = URL.createObjectURL(outBlob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'ILV_' + new Date().toISOString().slice(0, 10) + '.zip';
+      a.download = outName;
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
       URL.revokeObjectURL(url);
     };
@@ -2797,11 +2837,8 @@ async function generateCartPython() {
     let tries = 0;
     while (!window.__pdfjs && tries++ < 100) await new Promise(r => setTimeout(r, 50));
 
-    // Rendre chaque PDF
-    for (const [filename, entry] of Object.entries(zip.files)) {
-      if (entry.dir) continue;
-      const bytes = await entry.async('uint8array');
-
+    // Rendre chaque PDF (le PDF unique est rendu page par page)
+    for (const { filename, bytes } of pdfList) {
       const card = document.createElement('div');
       card.style.cssText = 'margin:0 auto 40px;max-width:700px;text-align:center;';
 
@@ -2842,7 +2879,7 @@ async function generateCartPython() {
     }
 
     output.scrollIntoView({ behavior: 'smooth' });
-    const okCount = Object.keys(zip.files).length;
+    const okCount = isMerge ? genCount : pdfList.length;
     if (batchErrors.length) {
       status.textContent = '⚠ ' + okCount + ' générée(s), ' + batchErrors.length + ' en erreur';
     } else {

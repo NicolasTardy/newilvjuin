@@ -250,12 +250,21 @@ def generate_ilv():
     if not files:
         return jsonify(error="Aucun PDF généré — template introuvable"), 500
 
+    fmt = (request.args.get("fmt") or "A3").upper()
+    merge = request.args.get("merge") == "1"
+    ean = str(item.get("ean", "produit"))
+
+    # merge (PDF unique) : un seul produit → renvoyer le PDF directement, mis à l'échelle
+    if merge:
+        merged = _merge_pdf_bytes([_rescale_pdf_bytes(data, fmt) for _, data in files])
+        return send_file(io.BytesIO(merged), mimetype="application/pdf",
+                         as_attachment=True, download_name=f"ILV_{ean}.pdf")
+
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
         for fname, data in files:
-            zf.writestr(fname, data)
+            zf.writestr(fname, _rescale_pdf_bytes(data, fmt))
     buf.seek(0)
-    ean = str(item.get("ean", "produit"))
     return send_file(buf, mimetype="application/zip",
                      as_attachment=True,
                      download_name=f"ILV_{ean}.zip")
@@ -448,6 +457,43 @@ def admin_generate_from_excel():
 
 # ── API génération panier (batch) ──────────────────────────────────────────────
 
+# ── Format d'impression (les gabarits sont en A3 ; A3/A4/A5 partagent le ratio √2) ──
+ISO_SIZES = {"A3": (842.0, 1191.0), "A4": (595.0, 842.0), "A5": (420.0, 595.0)}
+
+
+def _rescale_pdf_bytes(pdf_bytes, fmt):
+    """Redimensionne un PDF (gabarit A3) vers un format ISO A, sans déformation."""
+    fmt = (fmt or "A3").upper()
+    if fmt not in ISO_SIZES or fmt == "A3":
+        return pdf_bytes
+    import fitz
+    tw, th = ISO_SIZES[fmt]
+    src = fitz.open(stream=pdf_bytes, filetype="pdf")
+    out = fitz.open()
+    for pno in range(src.page_count):
+        sp = src[pno]
+        pw, ph = (th, tw) if sp.rect.width > sp.rect.height else (tw, th)  # respecte l'orientation
+        np = out.new_page(width=pw, height=ph)
+        np.show_pdf_page(np.rect, src, pno)
+    res = out.tobytes(garbage=3, deflate=True)
+    src.close()
+    out.close()
+    return res
+
+
+def _merge_pdf_bytes(list_bytes):
+    """Fusionne plusieurs PDF (1 page chacun) en un seul document (une ILV = une page)."""
+    import fitz
+    out = fitz.open()
+    for b in list_bytes:
+        d = fitz.open(stream=b, filetype="pdf")
+        out.insert_pdf(d)
+        d.close()
+    res = out.tobytes(garbage=3, deflate=True)
+    out.close()
+    return res
+
+
 @app.post("/api/generate-ilv-batch")
 def generate_ilv_batch():
     if gen is None:
@@ -457,43 +503,43 @@ def generate_ilv_batch():
     if not isinstance(items, list) or not items:
         return jsonify(error="Liste de produits requise"), 400
 
-    buf = io.BytesIO()
+    fmt = (request.args.get("fmt") or "A3").upper()
+    merge = request.args.get("merge") == "1"
+
+    generated = []  # (fname, data) mis à l'échelle
     errors = []
-    count = 0
+    for item in items:
+        try:
+            files = _generate_one(item)
+            for fname, data in files:
+                generated.append((fname, _rescale_pdf_bytes(data, fmt)))
+        except Exception as e:
+            label = item.get("ean") or item.get("designation", "?")[:20]
+            errors.append(f"{label}: {e}")
 
-    import sys
-    print(f"[batch] {len(items)} items reçus", flush=True)
-    for it in items:
-        print(f"  ITEM: {it}", flush=True)
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        for item in items:
-            print(f"  → rayon_ilv={item.get('rayon_ilv')!r}  credit_key={item.get('credit_key')!r}  prix={item.get('prix')}  gar={item.get('garantie_prix')}", flush=True)
-            try:
-                files = _generate_one(item)
-                print(f"     OK: {[f for f,_ in files]}", flush=True)
-                for fname, data in files:
-                    zf.writestr(fname, data)
-                    count += 1
-            except Exception as e:
-                print(f"     ERREUR: {e}", flush=True)
-                label = item.get("ean") or item.get("designation", "?")[:20]
-                errors.append(f"{label}: {e}")
-
-    if count == 0:
+    if not generated:
         msg = "Aucun PDF généré"
         if errors:
             msg += " — " + "; ".join(errors[:3])
         return jsonify(error=msg), 500
 
-    buf.seek(0)
     ts = datetime.now().strftime("%Y%m%d_%H%M")
-    resp = send_file(buf, mimetype="application/zip",
-                     as_attachment=True,
-                     download_name=f"ILV_{ts}.zip")
+    if merge:
+        merged = _merge_pdf_bytes([d for _, d in generated])
+        resp = send_file(io.BytesIO(merged), mimetype="application/pdf",
+                         as_attachment=True, download_name=f"ILV_{ts}.pdf")
+    else:
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            for fname, data in generated:
+                zf.writestr(fname, data)
+        buf.seek(0)
+        resp = send_file(buf, mimetype="application/zip",
+                         as_attachment=True, download_name=f"ILV_{ts}.zip")
+
     if errors:
         resp.headers["X-ILV-Errors"] = json.dumps(errors, ensure_ascii=False)
-        resp.headers["Access-Control-Expose-Headers"] = "X-ILV-Errors"
-    resp.headers["X-ILV-Count"] = str(count)
+    resp.headers["X-ILV-Count"] = str(len(generated))
     resp.headers["Access-Control-Expose-Headers"] = "X-ILV-Errors, X-ILV-Count"
     return resp
 
