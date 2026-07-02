@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mode d'emploi — ILV Crédit BUT</title>
+<style>
+  :root { --red:#e2231a; --ink:#1c2430; --mut:#5b6572; --line:#e3e7ec; --bg:#f6f7f9; --card:#fff; --accent:#8e44ad; --ok:#1e874b; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.6 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  .wrap { max-width:880px; margin:0 auto; padding:0 20px 80px; }
+  header.top { background:var(--red); color:#fff; padding:26px 20px; }
+  header.top .in { max-width:880px; margin:0 auto; }
+  header.top h1 { margin:0 0 4px; font-size:24px; }
+  header.top p { margin:0; opacity:.92; font-size:14px; }
+  .toc { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 20px; margin:26px 0; }
+  .toc h2 { margin:0 0 10px; font-size:14px; text-transform:uppercase; letter-spacing:.5px; color:var(--mut); }
+  .toc ol { margin:0; padding-left:20px; columns:2; column-gap:26px; }
+  .toc a { color:var(--ink); text-decoration:none; }
+  .toc a:hover { color:var(--red); text-decoration:underline; }
+  h2.sec { font-size:20px; margin:34px 0 12px; padding-top:12px; border-top:2px solid var(--red); }
+  h3 { font-size:16px; margin:20px 0 6px; }
+  p { margin:8px 0; }
+  ul, ol.steps { margin:8px 0 8px; padding-left:22px; }
+  li { margin:4px 0; }
+  code { background:#eef1f4; padding:1px 6px; border-radius:4px; font-size:13px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px 18px; margin:12px 0; }
+  .tip { border-left:4px solid var(--ok); background:#eefaf1; padding:10px 14px; border-radius:0 8px 8px 0; margin:12px 0; }
+  .warn { border-left:4px solid #e0a800; background:#fff8e6; padding:10px 14px; border-radius:0 8px 8px 0; margin:12px 0; }
+  .new { display:inline-block; background:var(--ok); color:#fff; font-size:10px; font-weight:700; padding:2px 7px; border-radius:9px; letter-spacing:.5px; vertical-align:middle; margin-left:6px; }
+  table { border-collapse:collapse; width:100%; margin:12px 0; font-size:14px; }
+  th, td { border:1px solid var(--line); padding:8px 10px; text-align:left; }
+  th { background:#f0f2f5; }
+  .pill { display:inline-block; border:1px solid var(--line); background:#fff; border-radius:6px; padding:2px 8px; font-size:13px; }
+  .btn-print { position:fixed; top:16px; right:16px; background:#fff; color:var(--red); border:1px solid var(--red); border-radius:8px; padding:8px 14px; font-weight:600; cursor:pointer; }
+  .kbd { background:#333; color:#fff; border-radius:4px; padding:1px 7px; font-size:12px; font-family:monospace; }
+  footer { color:var(--mut); font-size:12px; margin-top:40px; text-align:center; }
+  @media print {
+    .btn-print { display:none; }
+    body { background:#fff; font-size:12px; }
+    header.top { background:#fff !important; color:#000; border-bottom:3px solid var(--red); }
+    header.top h1 { color:var(--red); }
+    h2.sec { break-after:avoid; }
+    .card,.tip,.warn { break-inside:avoid; }
+    .toc ol { columns:2; }
+    a { color:#000; text-decoration:none; }
+  }
+</style>
+</head>
+<body>
+<button class="btn-print" onclick="window.print()">🖨 Imprimer / PDF</button>
+<header class="top"><div class="in">
+  <h1>Mode d'emploi — Outil ILV Crédit BUT</h1>
+  <p>Générer et imprimer les affichettes crédit (ILV) en magasin.</p>
+</div></header>
+
+<div class="wrap">
+
+  <div class="toc">
+    <h2>Sommaire</h2>
+    <ol>
+      <li><a href="#apercu">En bref</a></li>
+      <li><a href="#impression">La barre « Impression » (format &amp; PDF)</a></li>
+      <li><a href="#onglets">Les 5 façons de choisir des produits</a></li>
+      <li><a href="#panier">Le panier</a></li>
+      <li><a href="#credits">Quel crédit selon le prix</a></li>
+      <li><a href="#services">Garantie &amp; livraison</a></li>
+      <li><a href="#generer">Générer &amp; imprimer</a></li>
+      <li><a href="#admin">Administration (mise à jour des bases)</a></li>
+      <li><a href="#faq">Questions fréquentes / dépannage</a></li>
+    </ol>
+  </div>
+
+  <h2 class="sec" id="apercu">1. En bref</h2>
+  <p>L'outil produit des <strong>ILV (affichettes) de crédit</strong> prêtes à imprimer, au bon format et avec les mentions légales à jour. Le principe est toujours le même :</p>
+  <ol class="steps">
+    <li>On <strong>choisit un ou plusieurs produits</strong> (par code EAN, à la main, à la douchette, ou en série).</li>
+    <li>Ils arrivent dans le <strong>panier</strong>, où l'on ajuste au besoin le crédit, la garantie, la livraison.</li>
+    <li>On clique <strong>« Générer les ILV »</strong> : l'aperçu s'affiche et le fichier se télécharge.</li>
+    <li>On <strong>imprime</strong>.</li>
+  </ol>
+  <div class="tip"><strong>Deux réglages à connaître</strong> se trouvent tout en haut, dans la barre « Impression » : le <strong>format</strong> (A5 par défaut) et la <strong>sortie</strong> (un seul PDF, ou des fichiers séparés).</div>
+
+  <h2 class="sec" id="impression">2. La barre « Impression » (en haut de l'outil)</h2>
+  <p>Elle s'applique à <strong>toutes</strong> les générations, quel que soit l'onglet utilisé.</p>
+  <table>
+    <tr><th>Réglage</th><th>Options</th><th>À quoi ça sert</th></tr>
+    <tr><td><strong>Format</strong></td><td><span class="pill">A5</span> (défaut) · <span class="pill">A4</span> · <span class="pill">A3</span></td><td>Taille du PDF imprimé. <strong>A5</strong> correspond au schéma d'implantation magasin.</td></tr>
+    <tr><td><strong>Sortie</strong></td><td><span class="pill">PDF unique</span> (défaut) · <span class="pill">Fichiers séparés (ZIP)</span></td><td><strong>PDF unique</strong> = un seul fichier avec toutes les ILV (1 par page) → <strong>une seule impression</strong>. <strong>ZIP</strong> = un fichier par ILV.</td></tr>
+  </table>
+  <div class="tip">Pour imprimer plusieurs ILV en une fois, laissez <strong>« PDF unique »</strong> : vous ouvrez un seul fichier et lancez une seule impression.</div>
+
+  <h2 class="sec" id="onglets">3. Les 5 façons de choisir des produits</h2>
+
+  <h3>🔎 Sélection EAN</h3>
+  <p>La méthode la plus courante. Tapez un <strong>code EAN</strong> ou un <strong>nom de produit</strong> dans le champ « Filtrer », puis cliquez le produit dans la liste : il s'ajoute au panier. Des filtres (Domaine, Rayon, Gamme, Promo…) aident à réduire la liste.</p>
+
+  <h3>✏️ Saisie manuelle</h3>
+  <p>Pour un produit <strong>absent de la base</strong> ou un prix particulier : renseignez désignation, prix et rayon, puis ajoutez au panier.</p>
+
+  <h3>📷 Scan magasin</h3>
+  <p>Branchez une <strong>douchette</strong> code-barres, cliquez dans le champ de scan, puis scannez les produits : chaque code lu est <strong>ajouté automatiquement au panier</strong> avec les réglages par défaut. L'historique des scans s'affiche dessous.</p>
+  <ul>
+    <li>EAN inconnu → message d'erreur (rien n'est ajouté).</li>
+    <li>EAN déjà scanné → signalé pour éviter les doublons.</li>
+  </ul>
+
+  <h3>📚 Impression en série <span class="new">NOUVEAU</span></h3>
+  <p>Pour générer <strong>beaucoup d'ILV d'un coup</strong>. Filtrez par <strong>Domaine / Gamme / Rayon / Famille</strong> et par <strong>prix mini / maxi</strong> ; le nombre de « Produits concernés » se met à jour. Cliquez pour tout générer selon les règles habituelles.</p>
+
+  <h3>🗞 Impression dépliant</h3>
+  <p>Pour générer les ILV d'un <strong>dépliant publicitaire</strong>. Choisissez le <strong>N° de dépliant (média)</strong>, éventuellement la <strong>Gamme pub</strong>, et un <strong>prix mini</strong>. En période de <strong>10× sans frais</strong>, le 10× intérêts remboursés est automatiquement remplacé par le 10× sans frais.</p>
+
+  <h2 class="sec" id="panier">4. Le panier</h2>
+  <p>Chaque ligne = un produit. Vous pouvez y ajuster :</p>
+  <table>
+    <tr><th>Colonne</th><th>Ce que vous pouvez faire</th></tr>
+    <tr><td><strong>Prix</strong></td><td>Le corriger si besoin (le crédit proposé s'adapte).</td></tr>
+    <tr><td><strong>Garantie</strong></td><td>Cocher pour l'inclure (montant affiché selon le produit).</td></tr>
+    <tr><td><strong>Livraison</strong></td><td>Cocher « Dom » pour inclure la livraison à domicile dans la mensualité.</td></tr>
+    <tr><td><strong>Crédit</strong></td><td>Cocher le(s) type(s) de crédit à imprimer. Celui adapté au prix est <strong>pré-coché</strong>.</td></tr>
+  </table>
+  <p>La croix rouge à droite retire la ligne. Puis <strong>« Générer les ILV »</strong>.</p>
+
+  <h2 class="sec" id="credits">5. Quel crédit selon le prix</h2>
+  <p>Par défaut, l'outil coche automatiquement le crédit correspondant à la tranche de prix :</p>
+  <table>
+    <tr><th>Prix du produit</th><th>Crédit proposé</th><th>Services inclus par défaut</th></tr>
+    <tr><td>60 € – 250 €</td><td><strong>3× Sans Frais</strong> <span class="new">NOUVEAU</span></td><td>aucun (garantie/livraison possibles à la main)</td></tr>
+    <tr><td>251 € – 400 €</td><td>5× Sans Frais</td><td>aucun</td></tr>
+    <tr><td>401 € – 900 €</td><td>10× Intérêts Remboursés</td><td>aucun</td></tr>
+    <tr><td>901 € – 1 500 €</td><td>20× Intérêts Remboursés</td><td>garantie incluse</td></tr>
+    <tr><td>1 501 € – 4 000 €</td><td>36× Services Inclus</td><td>garantie incluse</td></tr>
+    <tr><td>4 001 € et +</td><td>48× Services Inclus</td><td>garantie incluse</td></tr>
+  </table>
+  <ul>
+    <li><strong>10× Sans Frais</strong> : disponible uniquement pendant la période promo affichée (dates indiquées à côté de la case).</li>
+    <li>Vous pouvez toujours <strong>cocher un autre crédit</strong> que celui proposé : plusieurs cases cochées = plusieurs ILV générées pour le produit.</li>
+    <li>Les <strong>3× et 5× sans frais</strong> sont limités à 3 000 € (case grisée au-delà).</li>
+  </ul>
+
+  <h2 class="sec" id="services">6. Garantie &amp; livraison</h2>
+  <ul>
+    <li><strong>Garantie</strong> : cochez la case sur la ligne du panier. Le montant est déterminé automatiquement selon le rayon et le prix. Trois niveaux existent (1★ / 2★ / 3★) selon les cas.</li>
+    <li><strong>Livraison</strong> : cochez « Dom » pour l'inclure. Elle est alors intégrée dans la mensualité affichée.</li>
+    <li>Chaque ILV existe en 3 variantes selon ce qui est coché : <em>garantie + livraison</em>, <em>garantie seule</em>, ou <em>sans service</em>.</li>
+  </ul>
+
+  <h2 class="sec" id="generer">7. Générer &amp; imprimer</h2>
+  <ol class="steps">
+    <li>Vérifiez la barre <strong>« Impression »</strong> en haut : <strong>A5</strong> + <strong>PDF unique</strong> pour le cas courant.</li>
+    <li>Cliquez <strong>« Générer les ILV »</strong>. L'aperçu de chaque ILV s'affiche sous le panier.</li>
+    <li>Cliquez le bouton violet <strong>« Télécharger le PDF unique »</strong> (ou le ZIP selon votre choix).</li>
+    <li>Ouvrez le PDF et <strong>imprimez en A5</strong> (dans la boîte d'impression, format A5, « Taille réelle » / 100 %).</li>
+  </ol>
+  <div class="tip">Le fichier téléchargé porte l'extension correcte automatiquement : <code>.pdf</code> pour un PDF unique, <code>.zip</code> pour des fichiers séparés.</div>
+
+  <h2 class="sec" id="admin">8. Administration (mise à jour des bases)</h2>
+  <p>Réservé au responsable de l'outil. On y accède en ajoutant <code>?admin=1</code> à l'adresse (mot de passe requis). On peut :</p>
+  <ul>
+    <li><strong>Mettre à jour la base articles</strong> (fichier Excel des produits et prix).</li>
+    <li><strong>Envoyer un ou plusieurs dépliants</strong> (.xlsx) — sélection multiple possible.</li>
+    <li><strong>Cumuler</strong> un dépliant sur ceux déjà en place (case « Ajouter au dépliant existant »), utile pour ajouter par ex. le dépliant n°886 sans retoucher le 885.</li>
+    <li><strong>Supprimer</strong> la base dépliant quand la période est terminée.</li>
+  </ul>
+  <div class="warn">Les prix « dépliant » basculent automatiquement sur le prix PUB dès <strong>72 h avant</strong> la date de début, pour préparer les ILV à l'avance.</div>
+
+  <h2 class="sec" id="faq">9. Questions fréquentes / dépannage</h2>
+
+  <h3>Le fichier téléchargé ne s'ouvre pas dans Acrobat (« fichier endommagé »)</h3>
+  <p>Rechargez la page <strong>sans le cache</strong> : <span class="kbd">Ctrl</span> + <span class="kbd">F5</span> (Windows). Régénérez ensuite vos ILV. Cela met à jour la version de l'outil dans le navigateur.</p>
+
+  <h3>J'ai choisi « PDF unique » mais j'obtiens un ZIP</h3>
+  <p>Même chose : <span class="kbd">Ctrl</span> + <span class="kbd">F5</span> pour recharger la dernière version, puis relancez la génération.</p>
+
+  <h3>Un produit n'apparaît pas dans la liste</h3>
+  <p>Vérifiez l'orthographe / le code EAN, et que les filtres (domaine, rayon…) ne sont pas trop restrictifs. Si le produit est vraiment absent, utilisez l'onglet <strong>Saisie manuelle</strong>.</p>
+
+  <h3>Le crédit proposé ne me convient pas</h3>
+  <p>Décochez-le et cochez le crédit voulu dans la colonne <strong>Crédit</strong> du panier. Vous pouvez en cocher plusieurs.</p>
+
+  <h3>L'ILV s'imprime trop grande / trop petite</h3>
+  <p>Vérifiez le <strong>Format</strong> dans la barre « Impression » (A5 pour l'implantation magasin) et, dans la fenêtre d'impression, choisissez « Taille réelle » (100 %), pas « Ajuster ».</p>
+
+  <footer>
+    Outil ILV Crédit BUT — mode d'emploi. En cas de souci non résolu par ce guide, contactez l'administrateur de l'outil.
+  </footer>
+</div>
+</body>
+</html>
