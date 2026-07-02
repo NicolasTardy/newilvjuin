@@ -2782,7 +2782,7 @@ async function generateCartPython() {
   status.textContent = items.length + ' ILV…';
 
   try {
-    const resp = await fetch('api/generate-ilv-batch', {
+    const resp = await fetch('api/generate-ilv-batch?' + ilvQuery(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(items),
