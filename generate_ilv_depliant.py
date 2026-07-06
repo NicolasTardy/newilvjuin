@@ -155,8 +155,7 @@ EXCEL_FAMILLE_TO_RAYON_ILV = {
 }
 
 STRATEGIE_ILV = [
-    {"min":   60, "max":  251,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], "credit": "3x_sf"},
-    {"min":  251, "max":  400,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], "credit": "5x_sf"},
+    {"min":   80, "max":  400,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], "credit": "5x_sf"},
     {"min":  400, "max":  900,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], "credit": "10x_ir"},
     {"min":  900, "max": 1500,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], "credit": "20x_ir"},
     {"min": 1500, "max": 4000,  "univers": ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], "credit": "36x_si"},

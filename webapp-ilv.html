@@ -618,8 +618,7 @@ const RAYON_TO_UNIVERS_ILV = {
 };
 
 const STRATEGIE_ILV = [
-  { min:   60, max:  251,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], credit: "3x_sf"  },
-  { min:  251, max:  400,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], credit: "5x_sf"  },
+  { min:   80, max:  400,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], credit: "5x_sf"  },
   { min:  400, max:  900,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], credit: "10x_ir" },
   { min:  900, max: 1500,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], credit: "20x_ir" },
   { min: 1500, max: 4000,  univers: ["PEM","GEM/TV","MEUBLE","LITERIE","SIEGE","DECO"], credit: "36x_si" },
@@ -2434,7 +2433,7 @@ function renderCart() {
   wrapEl.style.display = 'block';
 
   bodyEl.innerHTML = cart.map((item, idx) => {
-    const creditCBs = Object.keys(CREDIT_TYPES).filter(ck => ck !== '60x_si').map(ck => {
+    const creditCBs = Object.keys(CREDIT_TYPES).filter(ck => ck !== '60x_si' && ck !== '3x_sf').map(ck => {
       const ct = CREDIT_TYPES[ck];
       // Plafond légal : 3× et 5× sans frais limités à 3 000 €
       const disabled = ((ck === '5x_sf' || ck === '3x_sf') && item.prix > 3000)
