@@ -74,6 +74,34 @@ Blocs fixes partagés : `_CETELEM_A` (~l.975), `_CETELEM_B` (~l.984), `_BUT_PUB`
 - Décimales avec **virgule** dans les chaînes affichées.
 - Ne pas toucher aux variables `{mf_fmt}`, `{mens_fmt}`, `{total_fmt}`, etc.
 
+### D-bis. ⚠️ Impact d'un changement de taux sur les mentions de bas de page
+
+Les mentions du bas de chaque ILV sont **régénérées à chaque PDF** par `generer_ml_text()`.
+Elles mélangent du **dynamique** (suit les tables tout seul) et du **figé** (écrit en dur
+dans les phrases — à modifier à la main).
+
+**Dynamique — AUCUNE action après MAJ des tables/constantes :**
+- « au TAEG fixe de {taeg} » ← table `TAEG` ; « taux debiteur fixe de {tdb_fmt} % » ← `TAUX_DEBITEUR`
+- mensualité / intérêts / montant total dû ← recalculés (PMT) depuis `TAUX_DEBITEUR`
+- paragraphe assurance (coût mensuel, coût total, TAEA) ← recalculé
+- « Conditions au … » ← `DATE_CONDITIONS*` ; exemples 5x/3xsf/10xsf ← constantes `*_FICTIF_*`
+
+**FIGÉ dans les intros — MAJ MANUELLE OBLIGATOIRE si le TAEG d'une tranche 1 ou 3 change :**
+- branche `10x` : « fixe compris entre 8,60 % et 18,63 % » (= TAEG[10][3] et TAEG[10][1])
+- branche `20x` : « entre 8,60 % et 17,40 % » (= TAEG[20][3] et TAEG[20][1])
+- branches 36/48/60 : « entre 8,60 % et {taeg_max} » + dict `taeg_max = {"36x": "15,05", ...}`
+- plages de vente : « de 160EUR a 25 000EUR » (10x), « 320EUR » (20x), `montant_min = {"36x": "580", "48x": "770", "60x": "960"}`
+
+**Contrôle obligatoire après TOUTE MAJ de la table TAEG :**
+```bash
+grep -n "compris entre" generate_ilv_depliant.py
+grep -n 'taeg_max' generate_ilv_depliant.py
+```
+→ vérifier que chaque fourchette « entre X % et Y % » = (TAEG tranche 3, TAEG tranche 1)
+de la durée concernée. Si incohérent : corriger la chaîne en dur, dans le même commit.
+La vérification §4.3 (impression du texte ML) doit être relue AUSSI sur l'intro, pas
+seulement sur l'exemple.
+
 ### E. Tarifs services (garantie / livraison)
 
 Tables `SIM_RAW` — **dans les deux fichiers** : backend ~l.458, frontend ~l.1414.
@@ -100,6 +128,7 @@ git status --short              # doit être vide avant de commencer
 
 - « Nouveau taux débiteur 10× tranche 1 : 17,45 % au lieu de 17,21 %, TAEG 18,90 % »
   → backend `TAUX_DEBITEUR[10][1] = 17.45` + `TAEG[10][1] = "18,90 %"` ; frontend `TAEG[10][1] = "18,90 %"` ;
+  **ET** la fourchette figée de l'intro 10x « compris entre 8,60 % et 18,63 % » → « … et 18,90 % » (voir D-bis) ;
   recalculer l'exemple 10x_ir de `exampleByKey` si demandé.
 - « Conditions au 01/10/2026 » → `DATE_CONDITIONS = "01/10/2026"` (backend). Vérifier si les
   variantes 3XSF/10XSF sont aussi concernées.
