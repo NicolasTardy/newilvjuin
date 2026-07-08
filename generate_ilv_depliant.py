@@ -229,8 +229,8 @@ DATE_CONDITIONS_3XSF = "01/04/2026"
 # Valeurs de l'exemple des mentions légales (docx 885 - 10XSF).
 TAEG_FICTIF_10XSF     = 4.52
 TAUX_DEBITEUR_10XSF   = 4.43
-DATE_OFFRE_10XSF      = "du 24/06/2026 au 21/07/2026"      # mentions légales
-DATE_OFFRE_10XSF_HAUT = "Du 24/06 au 21/07/2026"          # bandeau en haut de l'ILV
+DATE_OFFRE_10XSF      = "du 24/06/2026 au 28/07/2026"      # mentions légales
+DATE_OFFRE_10XSF_HAUT = "Du 24/06 au 28/07/2026"          # bandeau en haut de l'ILV
 DATE_CONDITIONS_10XSF = "01/01/2026"
 # Période de validité de l'offre 10× Sans Frais (affichée sur l'ILV, génération libre).
 

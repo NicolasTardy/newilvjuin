@@ -446,7 +446,7 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
       <div style="background:#16213e;border:1px solid #2c3e6b;border-radius:8px;padding:18px;">
         <div style="font-size:13px;color:#9aa3ab;margin-bottom:10px;line-height:1.5;">
           &#128298; Douche un code-barres avec le pistolet &mdash; le produit s'ajoute au panier avec ses valeurs par d&eacute;faut (<b>jamais de livraison</b>).<br>
-          Cr&eacute;dit automatique par prix ; pendant la p&eacute;riode du 10&times; Sans Frais (24/06&rarr;21/07), le <b>10&times; Sans Frais remplace le 10&times; IR</b>.
+          Cr&eacute;dit automatique par prix ; pendant la p&eacute;riode du 10&times; Sans Frais (24/06&rarr;28/07), le <b>10&times; Sans Frais remplace le 10&times; IR</b>.
         </div>
         <input type="text" id="scan-input" placeholder="Scanne un EAN ici&hellip;" autocomplete="off" onkeydown="onScanKey(event)"
                style="width:100%;font-size:20px;padding:14px;border:2px solid #c0392b;border-radius:8px;background:#0f1626;color:#fff;letter-spacing:1px;">
@@ -671,7 +671,7 @@ const CREDITKEY_TO_SLUG = {
 const VARIANT_TO_PAGE = { "gar": 1, "gar_liv": 2, "sans": 3 };
 
 // Période de validité de l'offre 10× Sans Frais (affichée à côté de la case ; usage libre)
-const PROMO_10XSF = { debut: "2026-06-23", fin: "2026-07-21", label: "Du 24/06 au 21/07/2026", labelCourt: "24/06 au 21/07/2026" };
+const PROMO_10XSF = { debut: "2026-06-23", fin: "2026-07-28", label: "Du 24/06 au 28/07/2026", labelCourt: "24/06 au 28/07/2026" };
 // Fenêtre d'activité du 10× Sans Frais (utilisée par le mode Scan pour remplacer le 10× IR)
 function is10xsfActif() {
   const t = new Date().toISOString().slice(0, 10);
@@ -2441,7 +2441,7 @@ function renderCart() {
       const checked = (item.credits[ck] && !disabled) ? ' checked' : '';
       // 10× sans frais : libre, mais avertissement sur la période de validité
       const promoTag = (ck === '10x_sf')
-        ? '<span style="font-size:9px;color:#e67e22;font-weight:700;margin-left:3px;" title="Le 10× sans frais n\'est valable que du 24/06 au 21/07/2026">⚠ valable du ' + PROMO_10XSF.labelCourt + '</span>'
+        ? '<span style="font-size:9px;color:#e67e22;font-weight:700;margin-left:3px;" title="Le 10× sans frais n\'est valable que du 24/06 au 28/07/2026">⚠ valable du ' + PROMO_10XSF.labelCourt + '</span>'
         : '';
       return '<label style="display:inline-flex;align-items:center;gap:3px;margin-right:8px;font-size:11px;white-space:nowrap;color:' + (disabled ? '#555' : '#bbb') + ';">' +
         '<input type="checkbox" data-idx="' + idx + '" data-ck="' + ck + '" onchange="toggleCredit(' + idx + ',\'' + ck + '\',this.checked)"' + checked + disabled + '>' +
