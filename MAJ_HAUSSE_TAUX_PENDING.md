@@ -6,9 +6,9 @@
 > Procédure générale : voir `MAJ_TAUX_RUNBOOK.md`. Toute application passe par
 > l'accord explicite de Nicolas (diff + vérifs avant commit).
 >
-> Source : mail BNP « nouvelles retenues vendeurs à mettre en place » (barème
-> par tranche, version corrigée avec 5× surligné). Valeurs retenues = **DTS**
-> (« la plus forte » entre DTS et VAT).
+> Source définitive : `Mobilux_T3_2026.xlsx`, feuille « Tarification T3 2026 »
+> (fournie par Aurélien). Valeurs retenues = **DTS** (« la plus forte »).
+> Application EN DEUX TEMPS : 3×/10× à la date T3, 5× au 30/09/2026.
 
 ---
 
@@ -17,24 +17,36 @@
 Fichier : `generate_ilv_depliant.py`. Ces constantes ne changent QUE l'exemple
 « coût du crédit » des mentions légales ; le TAEG affiché reste 0 %.
 
-| Constante (ligne actuelle) | Valeur actuelle | → Nouvelle valeur |
+Source définitive : `Mobilux_T3_2026.xlsx`, feuille « Tarification T3 2026 »,
+valeurs **DTS** (les plus fortes). Application EN DEUX TEMPS (cf. Aurélien).
+
+**PHASE 1 — à la date d'effet T3 (§C) : 3× et 10× SEULEMENT**
+
+| Constante (ligne) | Actuel | → Nouveau |
 |---|---|---|
 | `TAUX_DEBITEUR_3XSF` (l.225) | 12.20 | **12.76** |
 | `TAEG_FICTIF_3XSF`   (l.224) | 12.91 | **13.61** |
-| `TAUX_DEBITEUR_5X`   (l.220) | 8.13  | **8.13**  *(inchangé)* |
-| `TAEG_FICTIF_5X`     (l.219) | 8.44  | **8.47**  *(+0,03)* |
 | `TAUX_DEBITEUR_10XSF`(l.231) | 4.43  | **4.99** |
 | `TAEG_FICTIF_10XSF`  (l.230) | 4.52  | **5.12** |
+
+**PHASE 2 — au 30/09/2026 : le 5× SEULEMENT**
+
+| Constante (ligne) | Actuel | → Nouveau |
+|---|---|---|
+| `TAUX_DEBITEUR_5X` (l.220) | 8.13 | **8.71** |
+| `TAEG_FICTIF_5X`   (l.219) | 8.44 | **9.10** |
+
+⚠️ Le 5× **reste à sa valeur actuelle jusqu'au 30/09/2026** (RV 2,00 %). Ne PAS
+l'inclure en phase 1, même si l'Excel l'affiche déjà haussé.
 
 Notes :
 - Le **3×** est masqué dans l'outil (hors STRATEGIE + case filtrée) mais on met
   quand même sa constante à jour pour cohérence.
-- Le **5×** ne bouge quasiment pas (TNC identique ; TAEG +0,03 en prenant le DTS).
 - Le **10×** est identique sur les 3 tranches → la constante unique suffit.
-- Pas de miroir frontend pour ces constantes (elles n'existent que côté backend ;
-  le TAEG affiché 0 % du front n'est pas concerné).
-- Après édition, mettre à jour le commentaire de date sur les lignes 219-220
-  (« # Mis à jour JJ/MM/AAAA »).
+- Ces constantes ne changent QUE l'exemple « coût du crédit » des mentions ;
+  le TAEG affiché au client reste 0 %.
+- Pas de miroir frontend (elles n'existent que côté backend).
+- Après édition, mettre à jour le commentaire de date sur les lignes 219-220.
 
 ## B. TAUX CLIENT (offres payantes / IR) — RÉSOLU : AUCUNE MODIFICATION
 
@@ -49,12 +61,13 @@ Conséquences — NE PAS toucher :
 
 → La hausse se limite donc STRICTEMENT aux 6 constantes du §A.
 
-## C. DATE D'EFFET — À RENSEIGNER
+## C. DATES D'EFFET
 
-- Inconnue à ce jour. À la réception :
-  - `DATE_CONDITIONS` (l.302) → « JJ/MM/AAAA » de la nouvelle grille.
-  - Vérifier si `DATE_CONDITIONS_3XSF` / `DATE_CONDITIONS_10XSF` sont aussi
-    concernées.
+- **Phase 2 (5×) : 30/09/2026** — confirmé par Aurélien.
+- **Phase 1 (3× / 10×) : date T3 à confirmer** (grille « Tarification T3 2026 »,
+  vraisemblablement début juillet 2026). SEULE info encore à obtenir d'Aurélien.
+- À l'application : mettre `DATE_CONDITIONS` (l.302) à la date de la grille
+  appliquée, et vérifier `DATE_CONDITIONS_3XSF` / `DATE_CONDITIONS_10XSF`.
 
 ---
 
@@ -64,7 +77,8 @@ Conséquences — NE PAS toucher :
 cd /home/ubuntu/ilvcredit-vector-v2   # (ou le dépôt local)
 git pull
 ```
-1. Éditer les 6 constantes du §A + `DATE_CONDITIONS` (§C). Ne PAS toucher au §B.
+1. Éditer les constantes de la PHASE concernée (§A : 4 constantes 3×/10× en
+   phase 1 ; 2 constantes 5× en phase 2) + `DATE_CONDITIONS` (§C). Jamais le §B.
 2. Vérifications (venv) :
    ```bash
    ./venv/bin/python -c "import ast; ast.parse(open('generate_ilv_depliant.py').read()); print('PY OK')"
@@ -99,6 +113,8 @@ git revert <hash>  && git push origin main && sudo systemctl restart ilvcredit-v
 ---
 
 ### Journal
-- Sort des taux client (§B) : **inchangés** (confirmé Aurélien) → seul le §A s'applique.
-- (à compléter) Date d'effet reçue : …
-- (à compléter) Appliqué le … , commit … , vérifié …
+- Sort des taux client (§B) : **inchangés** (confirmé Aurélien + Excel).
+- Valeurs gratuit : figées depuis `Mobilux_T3_2026.xlsx` (DTS).
+- Calendrier : 3×/10× à la date T3 (à confirmer) · 5× au 30/09/2026.
+- (à compléter) Date T3 reçue : …
+- (à compléter) Phase 1 appliquée le … , commit … · Phase 2 (5×) le 30/09 : …
