@@ -1,7 +1,8 @@
 # EN ATTENTE — Hausse des taux BNP (à appliquer à la date d'effet)
 
-> STATUT : **préparé, NON appliqué.** Ne rien modifier tant que la date d'effet
-> n'est pas connue ET que la partie « taux client » (§B) n'est pas tranchée.
+> STATUT : **préparé, NON appliqué.** Périmètre figé = §A uniquement (sans frais).
+> Seul élément encore manquant : **la date d'effet (§C)**. Dès qu'elle est connue,
+> la mise à jour est turnkey.
 > Procédure générale : voir `MAJ_TAUX_RUNBOOK.md`. Toute application passe par
 > l'accord explicite de Nicolas (diff + vérifs avant commit).
 >
@@ -35,22 +36,18 @@ Notes :
 - Après édition, mettre à jour le commentaire de date sur les lignes 219-220
   (« # Mis à jour JJ/MM/AAAA »).
 
-## B. TAUX CLIENT (offres payantes / IR) — EN ATTENTE DE CONFIRMATION
+## B. TAUX CLIENT (offres payantes / IR) — RÉSOLU : AUCUNE MODIFICATION
 
-Le barème fourni ne couvre QUE le « gratuit ». Les taux CLIENT imprimés sur les
-ILV payantes ne sont pas dedans :
-- 10× IR → 18,63 %  ·  20× IR → 17,40 %  ·  36/48/60× Services Inclus → 15,05 %
-  (tables `TAEG` et `TAUX_DEBITEUR`, par tranche 1/2/3).
+Confirmé par Nicolas (retour d'Aurélien) : **les taux client ne changent pas.**
+La hausse ne concerne QUE le barème « gratuit » (coût absorbé par BUT).
 
-**À trancher avec BNP/Aurélien AVANT d'appliquer :**
-1. Ces taux client changent-ils avec la hausse ? Si OUI → obtenir leur barème
-   PAR TRANCHE (TAEG + taux débiteur) et l'intégrer ici avant application.
-2. Si ces taux changent, RE-LIRE le §D-bis du runbook : les fourchettes figées
-   des intros de `generer_ml_text()` (« compris entre 8,60 % et 18,63 % » etc.)
-   devront être recalées à la main dans le même commit.
+Conséquences — NE PAS toucher :
+- tables `TAEG` et `TAUX_DEBITEUR` (10× IR 18,63 %, 20× IR 17,40 %,
+  36/48/60× 15,05 %) → inchangées ;
+- fourchettes figées des intros de `generer_ml_text()`
+  (« compris entre 8,60 % et 18,63 % » etc.) → inchangées (pas de §D-bis ici).
 
-Tant que ce point n'est pas clarifié : **n'appliquer que la partie A**, ou
-attendre d'avoir tout pour un seul passage.
+→ La hausse se limite donc STRICTEMENT aux 6 constantes du §A.
 
 ## C. DATE D'EFFET — À RENSEIGNER
 
@@ -67,7 +64,7 @@ attendre d'avoir tout pour un seul passage.
 cd /home/ubuntu/ilvcredit-vector-v2   # (ou le dépôt local)
 git pull
 ```
-1. Éditer les 6 constantes du §A (et §B si confirmé), + `DATE_CONDITIONS` (§C).
+1. Éditer les 6 constantes du §A + `DATE_CONDITIONS` (§C). Ne PAS toucher au §B.
 2. Vérifications (venv) :
    ```bash
    ./venv/bin/python -c "import ast; ast.parse(open('generate_ilv_depliant.py').read()); print('PY OK')"
@@ -102,6 +99,6 @@ git revert <hash>  && git push origin main && sudo systemctl restart ilvcredit-v
 ---
 
 ### Journal
+- Sort des taux client (§B) : **inchangés** (confirmé Aurélien) → seul le §A s'applique.
 - (à compléter) Date d'effet reçue : …
-- (à compléter) Sort des taux client (§B) : …
 - (à compléter) Appliqué le … , commit … , vérifié …
