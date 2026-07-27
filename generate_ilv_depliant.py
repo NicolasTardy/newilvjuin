@@ -221,17 +221,17 @@ TAUX_DEBITEUR_5X   = 8.13  # Mis à jour 04/05/2026
 
 # 3× Sans Frais — coût pris en charge par le magasin (comme 5x / 10xsf).
 # Valeurs de l'exemple des mentions légales (docx « ML 3 mois sans frais »).
-TAEG_FICTIF_3XSF     = 12.91
-TAUX_DEBITEUR_3XSF   = 12.20
-DATE_CONDITIONS_3XSF = "01/04/2026"
+TAEG_FICTIF_3XSF     = 13.61  # Mis à jour 29/07/2026 (hausse T3, DTS)
+TAUX_DEBITEUR_3XSF   = 12.76  # Mis à jour 29/07/2026 (hausse T3, DTS)
+DATE_CONDITIONS_3XSF = "29/07/2026"
 
 # 10× Sans Frais (soldes été 2026) — coût pris en charge par le magasin.
 # Valeurs de l'exemple des mentions légales (docx 885 - 10XSF).
-TAEG_FICTIF_10XSF     = 4.52
-TAUX_DEBITEUR_10XSF   = 4.43
+TAEG_FICTIF_10XSF     = 5.12  # Mis à jour 29/07/2026 (hausse T3, DTS)
+TAUX_DEBITEUR_10XSF   = 4.99  # Mis à jour 29/07/2026 (hausse T3, DTS)
 DATE_OFFRE_10XSF      = "du 24/06/2026 au 28/07/2026"      # mentions légales
 DATE_OFFRE_10XSF_HAUT = "Du 24/06 au 28/07/2026"          # bandeau en haut de l'ILV
-DATE_CONDITIONS_10XSF = "01/01/2026"
+DATE_CONDITIONS_10XSF = "29/07/2026"
 # Période de validité de l'offre 10× Sans Frais (affichée sur l'ILV, génération libre).
 
 # Table de surcharge assurance DIM (Décès, Invalidité, Maladie-Accident)

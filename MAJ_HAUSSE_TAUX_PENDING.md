@@ -1,8 +1,8 @@
 # EN ATTENTE — Hausse des taux BNP (à appliquer à la date d'effet)
 
-> STATUT : **préparé, NON appliqué.** Périmètre figé = §A uniquement (sans frais).
-> Seul élément encore manquant : **la date d'effet (§C)**. Dès qu'elle est connue,
-> la mise à jour est turnkey.
+> STATUT : **Phase 1 (3× / 10×) APPLIQUÉE dans le code** (commit du 27/07/2026),
+> **à déployer sur le VPS le 29/07/2026** (`git pull` + `restart`). Reste ensuite
+> **Phase 2 (5×) au 01/10/2026**.
 > Procédure générale : voir `MAJ_TAUX_RUNBOOK.md`. Toute application passe par
 > l'accord explicite de Nicolas (diff + vérifs avant commit).
 >
@@ -20,24 +20,27 @@ Fichier : `generate_ilv_depliant.py`. Ces constantes ne changent QUE l'exemple
 Source définitive : `Mobilux_T3_2026.xlsx`, feuille « Tarification T3 2026 »,
 valeurs **DTS** (les plus fortes). Application EN DEUX TEMPS (cf. Aurélien).
 
-**PHASE 1 — à la date d'effet T3 (§C) : 3× et 10× SEULEMENT**
+**PHASE 1 — effet 29/07/2026 : 3× et 10× — ✅ APPLIQUÉE (commit 27/07)**
 
-| Constante (ligne) | Actuel | → Nouveau |
-|---|---|---|
-| `TAUX_DEBITEUR_3XSF` (l.225) | 12.20 | **12.76** |
-| `TAEG_FICTIF_3XSF`   (l.224) | 12.91 | **13.61** |
-| `TAUX_DEBITEUR_10XSF`(l.231) | 4.43  | **4.99** |
-| `TAEG_FICTIF_10XSF`  (l.230) | 4.52  | **5.12** |
+| Constante | Avant | → Après | Fait |
+|---|---|---|---|
+| `TAUX_DEBITEUR_3XSF` | 12.20 | **12.76** | ✅ |
+| `TAEG_FICTIF_3XSF`   | 12.91 | **13.61** | ✅ |
+| `TAUX_DEBITEUR_10XSF`| 4.43  | **4.99**  | ✅ |
+| `TAEG_FICTIF_10XSF`  | 4.52  | **5.12**  | ✅ |
+| `DATE_CONDITIONS_3XSF` | 01/04/2026 | **29/07/2026** | ✅ |
+| `DATE_CONDITIONS_10XSF`| 01/01/2026 | **29/07/2026** | ✅ |
 
-**PHASE 2 — au 30/09/2026 : le 5× SEULEMENT**
+**PHASE 2 — effet 01/10/2026 : le 5× SEULEMENT — ⏳ À FAIRE**
 
 | Constante (ligne) | Actuel | → Nouveau |
 |---|---|---|
 | `TAUX_DEBITEUR_5X` (l.220) | 8.13 | **8.71** |
 | `TAEG_FICTIF_5X`   (l.219) | 8.44 | **9.10** |
+| `DATE_CONDITIONS` (l.302, si concerné) | 01/04/2026 | à décider |
 
-⚠️ Le 5× **reste à sa valeur actuelle jusqu'au 30/09/2026** (RV 2,00 %). Ne PAS
-l'inclure en phase 1, même si l'Excel l'affiche déjà haussé.
+⚠️ Le 5× **reste à sa valeur actuelle jusqu'au 30/09/2026 inclus** (RV 2,00 %) ;
+il change **au 01/10/2026**. Ne PAS l'appliquer avant.
 
 Notes :
 - Le **3×** est masqué dans l'outil (hors STRATEGIE + case filtrée) mais on met
@@ -61,13 +64,13 @@ Conséquences — NE PAS toucher :
 
 → La hausse se limite donc STRICTEMENT aux 6 constantes du §A.
 
-## C. DATES D'EFFET
+## C. DATES D'EFFET — confirmées (Mobilux_T3_2026, colonne « Date de mise en place »)
 
-- **Phase 2 (5×) : 30/09/2026** — confirmé par Aurélien.
-- **Phase 1 (3× / 10×) : date T3 à confirmer** (grille « Tarification T3 2026 »,
-  vraisemblablement début juillet 2026). SEULE info encore à obtenir d'Aurélien.
-- À l'application : mettre `DATE_CONDITIONS` (l.302) à la date de la grille
-  appliquée, et vérifier `DATE_CONDITIONS_3XSF` / `DATE_CONDITIONS_10XSF`.
+- **Phase 1 (3× / 10×) : 29/07/2026** — appliquée. `DATE_CONDITIONS_3XSF` et
+  `DATE_CONDITIONS_10XSF` passées à 29/07/2026.
+- **Phase 2 (5×) : 01/10/2026** — à faire ce jour-là.
+- `DATE_CONDITIONS` (l.302 — offres payantes/IR + 5×) laissée à 01/04/2026 :
+  ces offres ne changent pas au 29/07. À revoir au 01/10 pour le 5× si besoin.
 
 ---
 
@@ -116,5 +119,6 @@ git revert <hash>  && git push origin main && sudo systemctl restart ilvcredit-v
 - Sort des taux client (§B) : **inchangés** (confirmé Aurélien + Excel).
 - Valeurs gratuit : figées depuis `Mobilux_T3_2026.xlsx` (DTS).
 - Calendrier : 3×/10× à la date T3 (à confirmer) · 5× au 30/09/2026.
-- (à compléter) Date T3 reçue : …
-- (à compléter) Phase 1 appliquée le … , commit … · Phase 2 (5×) le 30/09 : …
+- Dates reçues (Mobilux) : Phase 1 = 29/07/2026 · Phase 2 (5×) = 01/10/2026.
+- Phase 1 (3×/10×) appliquée dans le code le 27/07/2026 → à déployer VPS le 29/07.
+- (à compléter) Phase 2 (5×) au 01/10/2026 : 8.13→8.71 / 8.44→9.10.
