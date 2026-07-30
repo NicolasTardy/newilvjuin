@@ -185,11 +185,11 @@ VARIANT_TO_PAGE = {"gar": 1, "gar_liv": 2, "sans": 3}
 COEFF_MENSUELS = {
     3:  {1: None,    2: None,    3: None},
     5:  {1: None,    2: None,    3: None},
-    10: {1: 0.10806, 2: 0.10692, 3: 0.10386},
-    20: {1: 0.05736, 2: 0.05674, 3: 0.05373},
-    36: {1: 0.03423, 2: 0.03423, 3: 0.03149},
-    48: {1: 0.02738, 2: 0.02738, 3: 0.02457},
-    60: {1: 0.02332, 2: 0.02332, 3: 0.02044},
+    10: {1: 0.10806, 2: 0.10684, 3: 0.10382},
+    20: {1: 0.05736, 2: 0.05666, 3: 0.05368},
+    36: {1: 0.03423, 2: 0.03423, 3: 0.03145},
+    48: {1: 0.02738, 2: 0.02738, 3: 0.02453},
+    60: {1: 0.02332, 2: 0.02332, 3: 0.02039},
 }
 
 TAEG = {
@@ -197,11 +197,11 @@ TAEG = {
     # n'apparaît QUE dans l'exemple des mentions légales.
     3:  {1: "0 %",     2: "0 %",     3: "0 %"},
     5:  {1: "0 %",     2: "0 %",     3: "0 %"},
-    10: {1: "18,63 %", 2: "15,73 %", 3: "8,60 %"},
-    20: {1: "17,40 %", 2: "15,73 %", 3: "8,60 %"},
-    36: {1: "15,05 %", 2: "15,05 %", 3: "8,60 %"},
-    48: {1: "15,05 %", 2: "15,05 %", 3: "8,60 %"},
-    60: {1: "15,05 %", 2: "15,05 %", 3: "8,60 %"},
+    10: {1: "18,63 %", 2: "15,67 %", 3: "8,56 %"},
+    20: {1: "17,40 %", 2: "15,67 %", 3: "8,56 %"},
+    36: {1: "15,05 %", 2: "15,05 %", 3: "8,56 %"},
+    48: {1: "15,05 %", 2: "15,05 %", 3: "8,56 %"},
+    60: {1: "15,05 %", 2: "15,05 %", 3: "8,56 %"},
 }
 
 # ── Mentions légales — constantes ──────────────────────────────────────────
@@ -209,11 +209,11 @@ TAEG = {
 TAUX_DEBITEUR = {
     3:  {1: 8.28,  2: 8.28,  3: 8.28},
     5:  {1: 8.13,  2: 8.13,  3: 8.13},
-    10: {1: 17.21, 2: 14.70, 3: 8.28},
-    20: {1: 16.15, 2: 14.70, 3: 8.28},
-    36: {1: 14.10, 2: 14.10, 3: 8.28},
-    48: {1: 14.10, 2: 14.10, 3: 8.28},
-    60: {1: 14.10, 2: 14.10, 3: 8.28},
+    10: {1: 17.21, 2: 14.65, 3: 8.24},
+    20: {1: 16.15, 2: 14.65, 3: 8.24},
+    36: {1: 14.10, 2: 14.10, 3: 8.24},
+    48: {1: 14.10, 2: 14.10, 3: 8.24},
+    60: {1: 14.10, 2: 14.10, 3: 8.24},
 }
 
 TAEG_FICTIF_5X     = 8.44  # Mis à jour 04/05/2026
@@ -299,7 +299,7 @@ def calculer_taea(montant_finance, duree, tdf_annuel, mensualite, assurance_m):
     taea = taeg_avec - taeg_sans
     return round(taea * 100, 2)  # en %
 
-DATE_CONDITIONS = "01/04/2026"
+DATE_CONDITIONS = "29/07/2026"
 
 # Coordonnées (x0, y_haut, x1, y_bas) de la zone ML dans le PDF de sortie
 # (système de coordonnées PyMuPDF : origine en haut-gauche, y vers le bas)
@@ -957,7 +957,7 @@ def generer_ml_text(slug: str, duree: int, famille: str,
         intro = (
             "Offre de credit accessoire a une vente de 160EUR a 25 000EUR sur une duree "
             "de 10 mois, pour un achat de 160EUR a 25 000EUR. Taux Annuel Effectif Global "
-            "fixe compris entre 8,60 % et 18,63 % selon le montant du credit. "
+            "fixe compris entre 8,56 % et 18,63 % selon le montant du credit. "
         )
         exemple = (
             f"Exemple pour un achat et un credit accessoire a une vente de {mf_fmt} EUR "
@@ -977,7 +977,7 @@ def generer_ml_text(slug: str, duree: int, famille: str,
         intro = (
             "Offre de credit accessoire a une vente de 320EUR a 25 000EUR sur une duree "
             "de 20 mois, pour un achat de 320EUR a 25 000EUR. Taux Annuel Effectif Global "
-            "fixe compris entre 8,60 % et 17,40 % selon le montant du credit. "
+            "fixe compris entre 8,56 % et 17,40 % selon le montant du credit. "
         )
         exemple = (
             f"Exemple pour un achat et un credit accessoire a une vente de {mf_fmt} EUR "
@@ -1007,7 +1007,7 @@ def generer_ml_text(slug: str, duree: int, famille: str,
     intro = (
         f"Offre de credit accessoire a une vente de {montant_min}EUR a 25 000EUR "
         f"sur une duree de {duree} mois, pour un achat de {montant_min}EUR a 25 000EUR. "
-        f"Taux Annuel Effectif Global fixe compris entre 8,60 % et {taeg_max} % "
+        f"Taux Annuel Effectif Global fixe compris entre 8,56 % et {taeg_max} % "
         f"selon le montant du credit. "
     )
     exemple = (
