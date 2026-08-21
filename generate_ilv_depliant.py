@@ -163,8 +163,8 @@ STRATEGIE_ILV = [
 ]
 
 CREDIT_TYPES = {
-    "3x_sf":  {"label": "3× Sans Frais",          "duree": 3,  "famille": "gratuit", "variants": ["gar", "gar_liv", "sans"]},
-    "5x_sf":  {"label": "5× Sans Frais",          "duree": 5,  "famille": "gratuit", "variants": ["gar", "sans"]},
+    "3x_sf":  {"label": "3× Sans Frais",          "duree": 3,  "famille": "gratuit", "variants": ["sans"]},
+    "5x_sf":  {"label": "5× Sans Frais",          "duree": 5,  "famille": "gratuit", "variants": ["sans"]},
     "10x_ir": {"label": "10× Int. Remboursés",     "duree": 10, "famille": "ir",      "variants": ["gar", "gar_liv", "sans"]},
     "10x_sf": {"label": "10× Sans Frais",          "duree": 10, "famille": "gratuit", "variants": ["gar", "gar_liv", "sans"]},
     "20x_ir": {"label": "20× Int. Remboursés",     "duree": 20, "famille": "ir",      "variants": ["gar", "gar_liv", "sans"]},
