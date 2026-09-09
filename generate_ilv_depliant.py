@@ -1471,98 +1471,100 @@ def generate_a3_pdf(slug, variant, designation, calc, montant_finance,
 
     # Ouvrir le template (1 page) avec fitz
     doc = fitz.open(str(template_path))
-    page = doc[0]
-
-    # Supprimer les widgets (placeholders vides) pour un rendu propre
     try:
-        for wdg in list(page.widgets() or []):
-            page.delete_widget(wdg)
-    except Exception:
-        pass
+        page = doc[0]
 
-    font = _a3_font()
-    Z = _A3_ZONES
-    F = _A3_FIXED
+        # Supprimer les widgets (placeholders vides) pour un rendu propre
+        try:
+            for wdg in list(page.widgets() or []):
+                page.delete_widget(wdg)
+        except Exception:
+            pass
 
-    # Désignation — bulle claire → texte foncé, auto-size sur la longueur (agrandie)
-    _draw_fitted(page, font, desig, Z["designation"], _COL_DARK,
-                 max_size=34, align="center", fill_h=0.98)
+        font = _a3_font()
+        Z = _A3_ZONES
+        F = _A3_FIXED
 
-    # Code EAN — sous la désignation, blanc sur fond rouge (toutes les ILV)
-    if ean:
-        _draw_fitted(page, font, f"EAN : {ean}", Z["ean"], _COL_WHITE,
-                     max_size=17, align="left")
+        # Désignation — bulle claire → texte foncé, auto-size sur la longueur (agrandie)
+        _draw_fitted(page, font, desig, Z["designation"], _COL_DARK,
+                     max_size=34, align="center", fill_h=0.98)
 
-    # Prix produit (hors services) — sous le code EAN, blanc sur fond rouge
-    if prix > 0:
-        prix_str = fmt_ml(prix) + " €"  # ex: "259,98 €"
-        _draw_fitted(page, font, prix_str, Z["prix_produit"], _COL_WHITE,
-                     max_size=17, align="left")
+        # Code EAN — sous la désignation, blanc sur fond rouge (toutes les ILV)
+        if ean:
+            _draw_fitted(page, font, f"EAN : {ean}", Z["ean"], _COL_WHITE,
+                         max_size=17, align="left")
 
-    # Mensualité ENTIER — grosse, blanche, fond rouge (auto-size pour remplir)
-    _draw_fitted(page, font, mensu_entier, Z["mensu_int"], _COL_WHITE,
-                 max_size=230, align="right", fill_h=1.0)
+        # Prix produit (hors services) — sous le code EAN, blanc sur fond rouge
+        if prix > 0:
+            prix_str = fmt_ml(prix) + " €"  # ex: "259,98 €"
+            _draw_fitted(page, font, prix_str, Z["prix_produit"], _COL_WHITE,
+                         max_size=17, align="left")
 
-    # Centimes — taille fixe (agrandie un peu), blanche, centrée dans sa boîte
-    _draw_fitted(page, font, centimes, Z["centimes"], _COL_WHITE,
-                 max_size=58, align="center")
+        # Mensualité ENTIER — grosse, blanche, fond rouge (auto-size pour remplir)
+        _draw_fitted(page, font, mensu_entier, Z["mensu_int"], _COL_WHITE,
+                     max_size=230, align="right", fill_h=1.0)
 
-    # TAEG — taille fixe à droite du label "TAEG fixe :"
-    s = F["taeg"]
-    _draw_at(page, font, taeg, s["x"], s["baseline"], s["size"], _COL_WHITE, s["max_w"])
+        # Centimes — taille fixe (agrandie un peu), blanche, centrée dans sa boîte
+        _draw_fitted(page, font, centimes, Z["centimes"], _COL_WHITE,
+                     max_size=58, align="center")
 
-    # Montant total dû — taille fixe à droite du label
-    s = F["montant"]
-    _draw_at(page, font, total_du, s["x"], s["baseline"], s["size"], _COL_WHITE, s["max_w"])
+        # TAEG — taille fixe à droite du label "TAEG fixe :"
+        s = F["taeg"]
+        _draw_at(page, font, taeg, s["x"], s["baseline"], s["size"], _COL_WHITE, s["max_w"])
 
-    # Prix services selon variant (rouge BUT)
-    if variant == "gar_liv":
-        s = F["liv"]
-        _draw_at(page, font, liv_prix, s["x"], s["baseline"], s["size"], _COL_RED, s["max_w"])
-        s = F["gar_gl"]
-        _draw_at(page, font, gar_prix, s["x"], s["baseline"], s["size"], _COL_RED, s["max_w"])
-    elif variant == "gar":
-        s = F["gar_g"]
-        _draw_at(page, font, gar_prix, s["x"], s["baseline"], s["size"], _COL_RED, s["max_w"])
+        # Montant total dû — taille fixe à droite du label
+        s = F["montant"]
+        _draw_at(page, font, total_du, s["x"], s["baseline"], s["size"], _COL_WHITE, s["max_w"])
 
-    # Badge IR (10x, 20x) — montant + € en ROUGE, centré dans le cercle blanc.
-    # La taille s'adapte automatiquement aux gros montants (4 chiffres ou plus).
-    if slug in ("10x", "20x") and interets and interets > 0:
-        # Effacer le « € » statique du template (bbox = 732,187,747,235) via redaction,
-        # qui supprime proprement le contenu sans laisser de rectangle blanc visible.
-        page.add_redact_annot(fitz.Rect(731, 186, 748, 236), fill=None)
-        page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE)
-        cents = int(round((interets - int(interets)) * 100))
-        badge_num = f"{int(interets)}" if cents == 0 else f"{int(interets)},{cents:02d}"
-        badge_text = badge_num + " €"
-        _draw_fitted(page, font, badge_text, Z["badge_ir"], _COL_RED,
-                     max_size=48, align="center", fill_h=1.0, fill_w=1.0)
+        # Prix services selon variant (rouge BUT)
+        if variant == "gar_liv":
+            s = F["liv"]
+            _draw_at(page, font, liv_prix, s["x"], s["baseline"], s["size"], _COL_RED, s["max_w"])
+            s = F["gar_gl"]
+            _draw_at(page, font, gar_prix, s["x"], s["baseline"], s["size"], _COL_RED, s["max_w"])
+        elif variant == "gar":
+            s = F["gar_g"]
+            _draw_at(page, font, gar_prix, s["x"], s["baseline"], s["size"], _COL_RED, s["max_w"])
 
-    # Bandeau de validité de l'offre 10× Sans Frais — en haut à droite (zone beige).
-    if slug == "10xsf":
-        _draw_fitted(page, font, DATE_OFFRE_10XSF_HAUT, (550, 76, 806, 114),
-                     _COL_RED, max_size=24, align="center")
+        # Badge IR (10x, 20x) — montant + € en ROUGE, centré dans le cercle blanc.
+        # La taille s'adapte automatiquement aux gros montants (4 chiffres ou plus).
+        if slug in ("10x", "20x") and interets and interets > 0:
+            # Effacer le « € » statique du template (bbox = 732,187,747,235) via redaction,
+            # qui supprime proprement le contenu sans laisser de rectangle blanc visible.
+            page.add_redact_annot(fitz.Rect(731, 186, 748, 236), fill=None)
+            page.apply_redactions(images=fitz.PDF_REDACT_IMAGE_NONE)
+            cents = int(round((interets - int(interets)) * 100))
+            badge_num = f"{int(interets)}" if cents == 0 else f"{int(interets)},{cents:02d}"
+            badge_text = badge_num + " €"
+            _draw_fitted(page, font, badge_text, Z["badge_ir"], _COL_RED,
+                         max_size=48, align="center", fill_h=1.0, fill_w=1.0)
 
-    # Mentions légales — boîte du bas, AU-DESSUS des logos BUT/Cetelem (y=1111).
-    # On cherche la plus grande taille qui tient (≤9) sans déborder sur les logos.
-    if ml_text:
-        ml_zone = fitz.Rect(30, 982, 812, 1105)
-        # Conversion Unicode → WinAnsi (CP1252) pour Helvetica built-in
-        ml_win = ml_text.replace("€", chr(0x80))    # € → CP1252 0x80
-        ml_win = ml_win.replace("–", chr(0x96)) # – (en-dash) → CP1252 0x96
-        ml_win = ml_win.replace(" ", " ")       # espace fine insécable → espace normale
-        for size in (9, 8.5, 8, 7.5, 7, 6.5, 6, 5.5, 5, 4.5):
-            page.draw_rect(ml_zone, color=(1, 1, 1), fill=(1, 1, 1))  # effacer l'essai précédent
-            rc = page.insert_textbox(ml_zone, ml_win, fontsize=size, fontname="helv",
-                                     color=_COL_DARK, align=fitz.TEXT_ALIGN_JUSTIFY,
-                                     encoding=fitz.TEXT_ENCODING_LATIN)
-            if rc >= 0:
-                break   # taille OK et déjà dessinée
+        # Bandeau de validité de l'offre 10× Sans Frais — en haut à droite (zone beige).
+        if slug == "10xsf":
+            _draw_fitted(page, font, DATE_OFFRE_10XSF_HAUT, (550, 76, 806, 114),
+                         _COL_RED, max_size=24, align="center")
 
-    # Sauvegarder
-    os.makedirs(os.path.dirname(str(output_path)), exist_ok=True)
-    doc.save(str(output_path), garbage=3, deflate=True)
-    doc.close()
+        # Mentions légales — boîte du bas, AU-DESSUS des logos BUT/Cetelem (y=1111).
+        # On cherche la plus grande taille qui tient (≤9) sans déborder sur les logos.
+        if ml_text:
+            ml_zone = fitz.Rect(30, 982, 812, 1105)
+            # Conversion Unicode → WinAnsi (CP1252) pour Helvetica built-in
+            ml_win = ml_text.replace("€", chr(0x80))    # € → CP1252 0x80
+            ml_win = ml_win.replace("–", chr(0x96)) # – (en-dash) → CP1252 0x96
+            ml_win = ml_win.replace(" ", " ")       # espace fine insécable → espace normale
+            for size in (9, 8.5, 8, 7.5, 7, 6.5, 6, 5.5, 5, 4.5):
+                page.draw_rect(ml_zone, color=(1, 1, 1), fill=(1, 1, 1))  # effacer l'essai précédent
+                rc = page.insert_textbox(ml_zone, ml_win, fontsize=size, fontname="helv",
+                                         color=_COL_DARK, align=fitz.TEXT_ALIGN_JUSTIFY,
+                                         encoding=fitz.TEXT_ENCODING_LATIN)
+                if rc >= 0:
+                    break   # taille OK et déjà dessinée
+
+        # Sauvegarder
+        os.makedirs(os.path.dirname(str(output_path)), exist_ok=True)
+        doc.save(str(output_path), garbage=3, deflate=True)
+    finally:
+        doc.close()
 
 
 # ── Génération PDF A3 — templates STC (100 % vectorisés, sans texte extractible) ──
