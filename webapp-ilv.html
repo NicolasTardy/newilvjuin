@@ -2512,7 +2512,7 @@ function renderCart() {
             (livTypeLabel ? '<br><span style="font-size:9px;color:#888;">' + livTypeLabel + '</span>' : '') +
             (item.montage > 0 && item.includeMontage ? '<br><span style="font-size:9px;color:#a8e6c1;">+montage ' + formatPrixService(item.montage) + '</span>' : '')
           : '<label class="cb-inline" style="opacity:.45;cursor:not-allowed;"' + noSvcTitle + '><input type="checkbox" disabled> <s>' + formatPrixService(item.livraison) + '</s></label>' +
-            '<br><span style="font-size:9px;color:#e67e22;">non finançable</span>')
+            '<br><span style="font-size:9px;color:#e67e22;">Option non disponible en affichage sur le 5x</span>')
       : '<span style="color:#777;">-</span>';
 
     // Garantie : affichage du montant (toujours incluse si > 0), barré si courte durée
@@ -2520,7 +2520,7 @@ function renderCart() {
       ? (svcOK
           ? formatPrixService(item.garantie)
           : '<span style="opacity:.45;"' + noSvcTitle + '><s>' + formatPrixService(item.garantie) + '</s></span>' +
-            '<br><span style="font-size:9px;color:#e67e22;">facultative, hors financement</span>')
+            '<br><span style="font-size:9px;color:#e67e22;">Option non disponible en affichage sur le 5x - Proposez la garantie au client</span>')
       : formatPrixService(item.garantie);
 
     return '<tr>' +
