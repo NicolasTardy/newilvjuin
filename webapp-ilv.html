@@ -1666,6 +1666,7 @@ function addByScan(rawEan) {
     rayonILV: p.rayonILV || '',
     universILV: p.universILV || '',
     garantie: garInclus ? garPrix : 0,
+    garantieDispo: garPrix,     // montant proposable, même si non financé
     livraison: 0,
     livType: 'dom',
     includeLiv: false,          // JAMAIS de livraison en scan
@@ -2190,9 +2191,13 @@ function addEanProduct() {
   if (block) { alert(block); return; }
 
   const p = selectedEanProduct;
-  // Si la garantie n'est pas cochée → garantie = 0 (variante "sans" sera utilisée)
+  // garantieDispo = montant de la garantie PROPOSABLE (toujours conservé, pour
+  // que le vendeur voie le prix à proposer au client même quand elle n'est pas
+  // financée). garantie = montant réellement intégré au financement (0 si non
+  // cochée → variante "sans").
   const includeGar = document.getElementById('ean-include-gar').checked;
-  const garantie = includeGar ? (parseFloat(document.getElementById('ean-garantie-prix').value) || 0) : 0;
+  const garantieDispo = parseFloat(document.getElementById('ean-garantie-prix').value) || 0;
+  const garantie = includeGar ? garantieDispo : 0;
   const includeLiv = document.getElementById('ean-include-liv').checked;
   const livType = document.getElementById('ean-liv-type').value;
   const livPrix = selectedEanWarAll ? getLivPrixForType(selectedEanWarAll, livType) : 0;
@@ -2212,6 +2217,7 @@ function addEanProduct() {
     rayonILV: p.rayonILV || '',
     universILV: p.universILV || '',
     garantie,
+    garantieDispo,
     livraison: livPrix,
     livType,
     includeLiv,
@@ -2376,6 +2382,7 @@ function addManualProduct() {
     rayonILV: rayon,
     universILV: univers,
     garantie,
+    garantieDispo: garantie,   // saisie manuelle : le montant saisi est le montant proposable
     livraison,
     livType,
     includeLiv,
@@ -2515,13 +2522,24 @@ function renderCart() {
             '<br><span style="font-size:9px;color:#e67e22;">Option non disponible en affichage sur le 5x</span>')
       : '<span style="color:#777;">-</span>';
 
-    // Garantie : affichage du montant (toujours incluse si > 0), barré si courte durée
-    const garCell = item.garantie > 0
-      ? (svcOK
-          ? formatPrixService(item.garantie)
-          : '<span style="opacity:.45;"' + noSvcTitle + '><s>' + formatPrixService(item.garantie) + '</s></span>' +
-            '<br><span style="font-size:9px;color:#e67e22;">Option non disponible en affichage sur le 5x - Proposez la garantie au client</span>')
-      : formatPrixService(item.garantie);
+    // Garantie : on affiche TOUJOURS le montant proposable (garantieDispo), même
+    // quand elle n'est pas financée — le vendeur doit connaître le prix à proposer.
+    //   courte durée (3x/5x) → barré + invitation à la proposer au client
+    //   garantie financée    → montant normal
+    //   dispo non financée   → montant grisé + mention
+    const garDispo = item.garantieDispo != null ? item.garantieDispo : item.garantie;
+    let garCell;
+    if (!(garDispo > 0)) {
+      garCell = '<span style="color:#777;">-</span>';
+    } else if (!svcOK) {
+      garCell = '<span style="opacity:.45;"' + noSvcTitle + '><s>' + formatPrixService(garDispo) + '</s></span>' +
+        '<br><span style="font-size:9px;color:#e67e22;">Option non disponible en affichage sur le 5x - Proposez la garantie au client</span>';
+    } else if (item.garantie > 0) {
+      garCell = formatPrixService(garDispo);
+    } else {
+      garCell = '<span style="opacity:.6;">' + formatPrixService(garDispo) + '</span>' +
+        '<br><span style="font-size:9px;color:#888;">disponible, non incluse</span>';
+    }
 
     return '<tr>' +
       '<td style="max-width:200px;">' + escH(item.designation) + '<br><span style="font-size:10px;color:#777;">' + escH(item.rayonILV || '-') + ' / ' + escH(item.universILV || '-') + '</span></td>' +
@@ -2576,7 +2594,8 @@ function updateCartPrice(idx, val) {
   if (item.universILV && item.rayonILV) {
     const warAll = lookupWarrantyAll(item.universILV, item.rayonILV, item.prix);
     const level = bestAvailableLevel(warAll);
-    item.garantie = pickGarantie(warAll, level >= 3 ? 2 : level);
+    item.garantieDispo = pickGarantie(warAll, level >= 3 ? 2 : level);
+    item.garantie = item.garantieDispo;
     item.livraison = getLivPrixForType(warAll, item.livType || 'dom');
     item.montage = warAll.montage || 0;
   }
