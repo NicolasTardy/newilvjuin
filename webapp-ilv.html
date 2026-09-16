@@ -2431,6 +2431,31 @@ function previewManualProduct() {
 // ============================================================
 // UI: CART
 // ============================================================
+
+// Règle métier : les courtes durées (3× / 5× sans frais) ne financent PAS les
+// services. Ces crédits ne déclarent que la variante "sans" (cf. degradeVariant).
+function creditAcceptsServices(ck) {
+  const ct = CREDIT_TYPES[ck];
+  return !!(ct && ct.variants.indexOf('gar') !== -1);
+}
+
+// true si la ligne du panier peut embarquer garantie/livraison, c.-à-d. si AU MOINS
+// un crédit coché les accepte. Aucun crédit coché → on ne grise rien.
+function lineAcceptsServices(item) {
+  const cks = Object.keys(item.credits).filter(ck => item.credits[ck]);
+  if (!cks.length) return true;
+  return cks.some(creditAcceptsServices);
+}
+
+const MSG_SERVICES_COURTES =
+  "Garantie et livraison ne sont pas disponibles sur les courtes durées "
+  + "(3× et 5× sans frais).\n\n"
+  + "Ces services ne peuvent pas être intégrés au financement : l'ILV sera "
+  + "générée sans service.\n\n"
+  + "→ La garantie reste proposable au client en OPTION FACULTATIVE, payée à part.\n"
+  + "→ Pour financer la garantie et/ou la livraison, choisissez une durée plus "
+  + "longue (10× et au-delà).";
+
 function renderCart() {
   const emptyEl = document.getElementById('cart-empty');
   const wrapEl = document.getElementById('cart-wrap');
@@ -2446,6 +2471,9 @@ function renderCart() {
   wrapEl.style.display = 'block';
 
   bodyEl.innerHTML = cart.map((item, idx) => {
+    // Crédits masqués dans le panier (plomberie conservée, cf. runbook) :
+    //   60x_si → retiré de l'offre, on privilégie le 48× (moins d'intérêts client)
+    //   3x_sf  → masqué en attente de décision commerciale
     const creditCBs = Object.keys(CREDIT_TYPES).filter(ck => ck !== '60x_si' && ck !== '3x_sf').map(ck => {
       const ct = CREDIT_TYPES[ck];
       // Plafond légal : 3× et 5× sans frais limités à 3 000 €
@@ -2461,18 +2489,33 @@ function renderCart() {
         ct.label + promoTag + '</label>';
     }).join('');
 
+    // Courtes durées (3×/5×) : les services ne sont pas finançables → on grise
+    const svcOK = lineAcceptsServices(item);
+    const noSvcTitle = ' title="Non disponible sur les courtes durées (3× / 5× sans frais)"';
+
     const livChecked = item.includeLiv ? ' checked' : '';
     const livTypeLabel = {pdp:'PdP', dom:'Dom', ensPdP:'Ens.PdP', ensDom:'Ens.Dom'}[item.livType] || '';
     const livCell = item.livraison > 0
-      ? '<label class="cb-inline"><input type="checkbox" onchange="toggleLiv(' + idx + ',this.checked)"' + livChecked + '> ' + formatPrixService(item.livraison) + '</label>' +
-        (livTypeLabel ? '<br><span style="font-size:9px;color:#888;">' + livTypeLabel + '</span>' : '') +
-        (item.montage > 0 && item.includeMontage ? '<br><span style="font-size:9px;color:#a8e6c1;">+montage ' + formatPrixService(item.montage) + '</span>' : '')
+      ? (svcOK
+          ? '<label class="cb-inline"><input type="checkbox" onchange="toggleLiv(' + idx + ',this.checked)"' + livChecked + '> ' + formatPrixService(item.livraison) + '</label>' +
+            (livTypeLabel ? '<br><span style="font-size:9px;color:#888;">' + livTypeLabel + '</span>' : '') +
+            (item.montage > 0 && item.includeMontage ? '<br><span style="font-size:9px;color:#a8e6c1;">+montage ' + formatPrixService(item.montage) + '</span>' : '')
+          : '<label class="cb-inline" style="opacity:.45;cursor:not-allowed;"' + noSvcTitle + '><input type="checkbox" disabled> <s>' + formatPrixService(item.livraison) + '</s></label>' +
+            '<br><span style="font-size:9px;color:#e67e22;">non finançable</span>')
       : '<span style="color:#777;">-</span>';
+
+    // Garantie : affichage du montant (toujours incluse si > 0), barré si courte durée
+    const garCell = item.garantie > 0
+      ? (svcOK
+          ? formatPrixService(item.garantie)
+          : '<span style="opacity:.45;"' + noSvcTitle + '><s>' + formatPrixService(item.garantie) + '</s></span>' +
+            '<br><span style="font-size:9px;color:#e67e22;">facultative, hors financement</span>')
+      : formatPrixService(item.garantie);
 
     return '<tr>' +
       '<td style="max-width:200px;">' + escH(item.designation) + '<br><span style="font-size:10px;color:#777;">' + escH(item.rayonILV || '-') + ' / ' + escH(item.universILV || '-') + '</span></td>' +
       '<td><input type="number" value="' + item.prix + '" step="0.01" min="0" onchange="updateCartPrice(' + idx + ',this.value)" style="width:90px;"></td>' +
-      '<td>' + formatPrixService(item.garantie) + '</td>' +
+      '<td>' + garCell + '</td>' +
       '<td>' + livCell + '</td>' +
       '<td>' + creditCBs + '</td>' +
       '<td><span class="cart-remove" onclick="removeCartItem(' + idx + ')">&times;</span></td>' +
@@ -2488,9 +2531,23 @@ function toggleCredit(idx, ck, checked) {
   }
   if (checked) cart[idx].credits[ck] = true;
   else delete cart[idx].credits[ck];
+
+  // Courte durée cochée sur un produit avec services → expliquer la règle
+  const it = cart[idx];
+  if (checked && !creditAcceptsServices(ck)
+      && (it.garantie > 0 || (it.includeLiv && it.livraison > 0))) {
+    alert(MSG_SERVICES_COURTES);
+  }
+  renderCart();   // re-rendu : grise/dégrise garantie & livraison
 }
 
 function toggleLiv(idx, checked) {
+  // Refus si la ligne ne comporte que des courtes durées (services non finançables)
+  if (checked && !lineAcceptsServices(cart[idx])) {
+    alert(MSG_SERVICES_COURTES);
+    renderCart();
+    return;
+  }
   cart[idx].includeLiv = checked;
 }
 

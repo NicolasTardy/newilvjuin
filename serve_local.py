@@ -163,6 +163,12 @@ def _generate_one(item: dict) -> list[tuple[str, bytes]]:
     if credit_key == "5x_sf" and prix > 3000:
         raise ValueError("Le 5× sans frais est limité à 3 000 € maximum")
 
+    # 60× retiré de l'offre (choix commercial) : on privilégie le 48×, moins
+    # coûteux en intérêts pour le client. La plomberie reste en place (cf. 3×).
+    if credit_key == "60x_si":
+        raise ValueError("Le 60× n'est plus proposé : utiliser le 48× "
+                         "(moins d'intérêts pour le client)")
+
     # 10× sans frais : génération libre. La période de validité reste affichée
     # sur l'ILV (bandeau + mentions légales) et signalée à côté de la case.
 
