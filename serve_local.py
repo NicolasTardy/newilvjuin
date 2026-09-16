@@ -514,20 +514,27 @@ def generate_ilv_batch():
 
     generated = []  # (fname, data) mis à l'échelle
     errors = []
+    only_refus = True   # False dès qu'une erreur n'est PAS un refus métier
     for item in items:
+        label = item.get("ean") or item.get("designation", "?")[:20]
         try:
             files = _generate_one(item)
             for fname, data in files:
                 generated.append((fname, _rescale_pdf_bytes(data, fmt)))
+        except ValueError as e:
+            # Refus métier attendu : plafond 5×, crédit retiré (60×),
+            # mensualité < 16 €, crédit inapplicable… → erreur de requête, pas serveur.
+            errors.append(f"{label}: {e}")
         except Exception as e:
-            label = item.get("ean") or item.get("designation", "?")[:20]
+            only_refus = False
             errors.append(f"{label}: {e}")
 
     if not generated:
         msg = "Aucun PDF généré"
         if errors:
             msg += " — " + "; ".join(errors[:3])
-        return jsonify(error=msg), 500
+        # 400 si tout a été refusé pour une raison métier, 500 si bug réel
+        return jsonify(error=msg), (400 if only_refus else 500)
 
     ts = datetime.now().strftime("%Y%m%d_%H%M")
     if merge:
