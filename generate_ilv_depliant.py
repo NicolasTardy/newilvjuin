@@ -225,12 +225,15 @@ TAEG_FICTIF_3XSF     = 13.61  # Mis à jour 29/07/2026 (hausse T3, DTS)
 TAUX_DEBITEUR_3XSF   = 12.76  # Mis à jour 29/07/2026 (hausse T3, DTS)
 DATE_CONDITIONS_3XSF = "29/07/2026"
 
-# 10× Sans Frais (soldes été 2026) — coût pris en charge par le magasin.
-# Valeurs de l'exemple des mentions légales (docx 885 - 10XSF).
-TAEG_FICTIF_10XSF     = 5.12  # Mis à jour 29/07/2026 (hausse T3, DTS)
-TAUX_DEBITEUR_10XSF   = 4.99  # Mis à jour 29/07/2026 (hausse T3, DTS)
-DATE_OFFRE_10XSF      = "du 24/06/2026 au 28/07/2026"      # mentions légales
-DATE_OFFRE_10XSF_HAUT = "Du 24/06 au 28/07/2026"          # bandeau en haut de l'ILV
+# 10× Sans Frais — coût pris en charge par le magasin.
+# Valeurs de l'exemple des mentions légales (docx « 891-ML 10 mois sans frais »).
+TAEG_FICTIF_10XSF     = 5.11  # MàJ 16/09/2026 — valeur VAT du doc 891 (était 5.12 = DTS)
+TAUX_DEBITEUR_10XSF   = 4.99  # inchangé (hausse T3)
+# Retenue vendeur (RV) du 10× gratuit : le doc 891 exprime le coût pris en charge
+# par le magasin comme montant × RV (ex. 500 € → 11,25 €), et non par la formule PMT.
+RETENUE_10XSF         = 0.0225  # 2,25 % (barème Mobilux T3 — 10× gratuit)
+DATE_OFFRE_10XSF      = "du 22/09/2026 au 26/10/2026"      # mentions légales
+DATE_OFFRE_10XSF_HAUT = "Du 22/09 au 26/10/2026"          # bandeau en haut de l'ILV
 DATE_CONDITIONS_10XSF = "29/07/2026"
 # Période de validité de l'offre 10× Sans Frais (affichée sur l'ILV, génération libre).
 
@@ -930,10 +933,10 @@ def generer_ml_text(slug: str, duree: int, famille: str,
         )
 
     if slug == "10xsf":
-        # 10× Sans Frais (soldes été 2026) — coût pris en charge par le magasin (comme 5x).
-        interets_fictifs = round(
-            montant_finance * (TAUX_DEBITEUR_10XSF / 100 / 12) * ((duree + 1) / 2)
-        )
+        # 10× Sans Frais — coût pris en charge par le magasin.
+        # Le doc 891 exprime les intérêts pris en charge par la RETENUE vendeur :
+        # montant × RV 2,25 % (ex. 500 EUR → 11,25 EUR), et non par la formule PMT.
+        interets_fictifs = fmt_ml(montant_finance * RETENUE_10XSF)
         taeg_f_fmt = f"{TAEG_FICTIF_10XSF:.2f}".replace(".", ",")
         tdb_f_fmt  = f"{TAUX_DEBITEUR_10XSF:.2f}".replace(".", ",")
         return (
