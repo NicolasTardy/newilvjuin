@@ -513,7 +513,7 @@ body.debug #output .page .field--multi { outline-color:rgba(0,180,255,.7); backg
           <tr>
             <th>Produit</th>
             <th>Prix</th>
-            <th>Garantie</th>
+            <th>Garantie <span style="font-weight:400;font-size:10px;color:#888;">(cocher = inclure dans mensualit&eacute;)</span></th>
             <th>Livraison <span style="font-weight:400;font-size:10px;color:#888;">(cocher = inclure dans mensualit&eacute;)</span></th>
             <th>Cr&eacute;dit</th>
             <th></th>
@@ -2532,13 +2532,16 @@ function renderCart() {
     if (!(garDispo > 0)) {
       garCell = '<span style="color:#777;">-</span>';
     } else if (!svcOK) {
+      // Courte durée : non finançable, donc ni case ni possibilité de cocher
       garCell = '<span style="opacity:.45;"' + noSvcTitle + '><s>' + formatPrixService(garDispo) + '</s></span>' +
         '<br><span style="font-size:9px;color:#e67e22;">Option non disponible en affichage sur le 5x - Proposez la garantie au client</span>';
-    } else if (item.garantie > 0) {
-      garCell = formatPrixService(garDispo);
     } else {
-      garCell = '<span style="opacity:.6;">' + formatPrixService(garDispo) + '</span>' +
-        '<br><span style="font-size:9px;color:#888;">disponible, non incluse</span>';
+      // Finançable (10× et au-delà) : cochable. Jamais cochée d'office ici — on
+      // reflète l'état réel de l'item (coché par défaut seulement à partir du 20×).
+      const garChecked = item.garantie > 0 ? ' checked' : '';
+      garCell = '<label class="cb-inline"><input type="checkbox" onchange="toggleGar(' + idx + ',this.checked)"' + garChecked + '> ' +
+        formatPrixService(garDispo) + '</label>' +
+        (item.garantie > 0 ? '' : '<br><span style="font-size:9px;color:#888;">disponible, non incluse</span>');
     }
 
     return '<tr>' +
@@ -2580,6 +2583,19 @@ function toggleLiv(idx, checked) {
   cart[idx].includeLiv = checked;
 }
 
+// Inclure / retirer la garantie du financement. item.garantie porte le montant
+// financé (0 = non incluse) ; garantieDispo garde le montant proposable.
+function toggleGar(idx, checked) {
+  const item = cart[idx];
+  if (checked && !lineAcceptsServices(item)) {
+    alert(MSG_SERVICES_COURTES);
+    renderCart();
+    return;
+  }
+  item.garantie = checked ? (item.garantieDispo || 0) : 0;
+  renderCart();
+}
+
 function updateCartPrice(idx, val) {
   cart[idx].prix = parseFloat(val) || 0;
   // Plafond 3× / 5× : décocher si prix > 3 000 €
@@ -2594,8 +2610,12 @@ function updateCartPrice(idx, val) {
   if (item.universILV && item.rayonILV) {
     const warAll = lookupWarrantyAll(item.universILV, item.rayonILV, item.prix);
     const level = bestAvailableLevel(warAll);
+    // On respecte le choix du vendeur : la garantie ne se ré-inclut pas toute
+    // seule quand le prix change, elle suit juste le nouveau montant si elle
+    // était déjà cochée.
+    const garEtaitIncluse = item.garantie > 0;
     item.garantieDispo = pickGarantie(warAll, level >= 3 ? 2 : level);
-    item.garantie = item.garantieDispo;
+    item.garantie = garEtaitIncluse ? item.garantieDispo : 0;
     item.livraison = getLivPrixForType(warAll, item.livType || 'dom');
     item.montage = warAll.montage || 0;
   }
