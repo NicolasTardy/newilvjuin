@@ -24,6 +24,12 @@ BUNDLE_CREDITS = ("10x_ir", "10x_sf", "20x_ir", "36x_si", "48x_si")
 UNIVERS_ILV = "LITERIE"
 VARIANT = "sans"
 
+# Mise en page propre au bundle (coordonnées PDF du masque A3)
+PASTILLE_TXT = "MATELAS + SOMMIER"
+PASTILLE_SIZE = 19
+PASTILLE_X, PASTILLE_Y, PASTILLE_H = 92, 226, 28   # au-dessus de la bulle (y 264)
+PRIX_X_MAX = 410                                    # ligne prix élargie (zone d'origine : 360)
+
 
 def _produit(data, libelle):
     data = data or {}
@@ -79,7 +85,8 @@ def build_bundle_pdf(gen, payload):
         raise ValueError(f"Fichier template introuvable : {tpl.name}")
 
     ean_txt = " + ".join(e for e in (e1, e2) if e)
-    prix_detail = f"{gen.fmt_ml(p1)} € + {gen.fmt_ml(p2)} € = {gen.fmt_ml(total)} €"
+    prix_detail = (f"Matelas {gen.fmt_ml(p1)} € + Sommier {gen.fmt_ml(p2)} € "
+                   f"= {gen.fmt_ml(total)} €")
 
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "bundle.pdf"
@@ -97,8 +104,18 @@ def build_bundle_pdf(gen, payload):
             for texte, zone in ((d1, (x0, y0, x1, mid)), (d2, (x0, mid, x1, y1))):
                 gen._draw_fitted(page, font, texte, zone, gen._COL_DARK,
                                  max_size=20, align="center", fill_h=0.95)
-            gen._draw_fitted(page, font, prix_detail, gen._A3_ZONES["prix_produit"],
+            # Ligne prix étiquetée : zone élargie vers la droite (libre jusqu'au
+            # grand « € » de la mensualité) car le texte est plus long.
+            px0, py0, _, py1 = gen._A3_ZONES["prix_produit"]
+            gen._draw_fitted(page, font, prix_detail, (px0, py0, PRIX_X_MAX, py1),
                              gen._COL_WHITE, max_size=17, align="left")
+            # Pastille « MATELAS + SOMMIER » dans la bande rouge libre entre le
+            # titre du masque et la bulle (vérifié sur les 5 masques autorisés).
+            tw = font.text_length(PASTILLE_TXT, PASTILLE_SIZE)
+            pill = fitz.Rect(PASTILLE_X, PASTILLE_Y, PASTILLE_X + tw + 28, PASTILLE_Y + PASTILLE_H)
+            page.draw_rect(pill, color=None, fill=gen._COL_WHITE, radius=0.5)
+            gen._draw_fitted(page, font, PASTILLE_TXT, (pill.x0, pill.y0, pill.x1, pill.y1),
+                             gen._COL_RED, max_size=PASTILLE_SIZE, align="center", fill_h=0.95)
             data = doc.tobytes(garbage=3, deflate=True)
         finally:
             doc.close()
