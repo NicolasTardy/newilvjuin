@@ -557,6 +557,19 @@ def generate_ilv_batch():
     return resp
 
 
+# ── Onglet « ILV Bundle Matelas/Sommier » (module séparé bundle_literie.py) ──
+# Chargé à part et protégé : une erreur dans ce module ne doit jamais empêcher
+# le reste de l'outil de démarrer.
+try:
+    _bspec = importlib.util.spec_from_file_location("bundle_literie", ROOT / "bundle_literie.py")
+    _bundle = importlib.util.module_from_spec(_bspec)
+    _bspec.loader.exec_module(_bundle)
+    _bundle.register(app, gen, _rescale_pdf_bytes)
+    print("  Onglet bundle literie chargé")
+except Exception as e:
+    print(f"  ATTENTION : onglet bundle literie non chargé — {e}")
+
+
 if __name__ == "__main__":
     print(f"\n  ILV Crédit BUT — serveur local")
     print(f"  → http://localhost:{PORT}/webapp-ilv.html")

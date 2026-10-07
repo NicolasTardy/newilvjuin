@@ -1,7 +1,7 @@
 # Bundle literie — ILV matelas + sommier (à développer)
 
-> Préparé le 06/10/2026. Décisions validées par Nicolas, prêtes à implémenter.
-> Rien n'est encore codé : ce document est le cahier des charges.
+> Préparé le 06/10/2026. Décisions validées par Nicolas.
+> **Implémenté le 07/10/2026** (onglet « ILV Bundle Matelas/Sommier »), voir § Implémentation en fin de document.
 
 ## Objectif
 
@@ -42,11 +42,11 @@ Total = prix matelas + prix sommier. Le crédit est celui de la stratégie gén�
 | 1 500 € → 4 000 € | 36× Services Inclus |
 | > 4 000 € | 48× Services Inclus |
 
-⚠️ **Piège des bornes :** dans `STRATEGIE_ILV`, 400 € appartient aux deux tranches (5× : 80-400, 10× : 400-900) et `determine_credit` prend la première, donc **400 € → 5×**. Ne pas coder « refus si total < 400 » tout seul. Règle robuste :
+Bornes : `determine_credit` (et `determineDefaultCredit` côté navigateur) testent `min ≤ prix < max`, donc **400 € exactement → 10×** (le 5× s'arrête à 399,99 €). *Correctif du 07/10 : la version du 06/10 annonçait à tort 400 € → 5×.*
+
+Règle appliquée, robuste à tout futur changement de la stratégie :
 
 > crédit = stratégie générale (avec substitution 10× SF) ; **si le crédit obtenu n'est pas dans {10x_ir, 10x_sf, 20x_ir, 36x_si, 48x_si} → refus.**
-
-Ça couvre aussi le cas exact de 400 €, et tout futur changement de la stratégie.
 
 La règle légale de la mensualité minimale (16 €) continue de s'appliquer, elle est déjà gérée côté serveur.
 
@@ -121,7 +121,7 @@ Ajouter une courte section « Bundle literie » : à quoi ça sert, éligibilit�
 - [ ] Total 2 500 € → 36×
 - [ ] Total 4 500 € → 48×
 - [ ] Total 350 € → refus avec message (400)
-- [ ] Total **exactement 400 €** → refus (piège des bornes)
+- [ ] Total **exactement 400 €** → 10× (borne incluse)
 - [ ] Requête bundle avec garantie ou livraison forcée → ignorées, variante « sans »
 - [ ] Rendu A3 et A5 : désignation sur deux lignes lisible, ligne prix détaillée qui tient, rien ne chevauche la mensualité
 - [ ] Désignations longues (40+ caractères) : l'ajustement automatique reste lisible
@@ -150,3 +150,23 @@ Puis contrôle : service actif, page en 200, un bundle généré en 200 depuis l
 | Désignation deux lignes + prix détaillé (backend) | 1 à 2 h |
 | Endpoint bundle + garde-fous serveur | 1 h |
 | Tests + tuto + déploiement | 1 h 30 |
+
+## Implémentation (07/10/2026)
+
+Choix retenu : **aucune ligne existante modifiée**, uniquement des ajouts.
+
+| Fichier | Rôle |
+|---|---|
+| `bundle_literie.py` (nouveau) | Règles du bundle, endpoint `POST /api/generate-ilv-bundle`. Appelle `generate_a3_pdf()` tel quel (désignation vide, prix 0), puis surimprime la désignation sur deux lignes et la ligne prix détaillée avec les helpers existants (`_draw_fitted`, `_a3_font`, `_A3_ZONES`). |
+| `bundle-literie.js` (nouveau) | L'onglet : injecte lui-même son bouton et son contenu, enveloppe `switchTab` sans la modifier, réutilise les globales (`products`, `determineDefaultCredit`, `is10xsfActif`, `calculerCredit`, `ilvQuery`…). |
+| `serve_local.py` (+13 lignes en fin de fichier) | Charge `bundle_literie.py` dans un `try` : une erreur du module n'empêche jamais l'outil de démarrer. |
+| `webapp-ilv.html` (+1 ligne) | `<script src="bundle-literie.js"></script>` avant `</body>`. |
+
+Écarts par rapport au plan initial :
+- `generate_a3_pdf()` n'a **pas** reçu de paramètres `designation2` / `prix_detail` : la surimpression dans le module évite de toucher au générateur.
+- Le PDF est toujours renvoyé en **PDF unique** (une seule ILV), au format choisi dans la barre Impression (A5/A4/A3).
+- Le tutoriel (`tuto.html`) n'est pas encore mis à jour.
+
+Pour retirer l'onglet : supprimer la ligne `<script>` de `webapp-ilv.html` et le bloc « Onglet ILV Bundle » de `serve_local.py`.
+
+Tests passés : 650 € → 10× IR (10× SF pendant la promo), 400 € → 10×, 1 138 € → 20×, 2 500 € → 36×, 4 500 € → 48×, 350 € → refus 400, services forcés ignorés, 10× SF demandé hors tranche 10× ignoré, produit incomplet → 400, navigation entre onglets, non-régression des endpoints existants.
