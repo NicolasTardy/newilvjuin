@@ -688,7 +688,22 @@ function degradeVariant(variant, ct) {
 // "debut" = début de la SUBSTITUTION AUTO 10x IR → 10x SF (mode scan/auto). Il est
 // volontairement avancé au 16/09 pour laisser les magasins préparer/imprimer avant
 // le lancement ; les dates imprimées sur l'ILV restent celles de l'offre (22/09→26/10).
-const PROMO_10XSF = { debut: "2026-09-16", fin: "2026-10-26", label: "Du 22/09 au 26/10/2026", labelCourt: "22/09 au 26/10/2026" };
+// Prolongation (22/10/2026) : nouvelle période du 27/10 au 30/11/2026. Le libellé
+// bascule seul le 27/10 (miroir de PERIODES_10XSF côté serveur, qui fait foi
+// pour les dates imprimées). La substitution auto reste active sans interruption.
+const PROMO_10XSF_PERIODES = [
+  { jusquau: "2026-10-26", label: "Du 22/09 au 26/10/2026", labelCourt: "22/09 au 26/10/2026" },
+  { jusquau: "2026-11-30", label: "Du 27/10 au 30/11/2026", labelCourt: "27/10 au 30/11/2026" },
+];
+const PROMO_10XSF = (function () {
+  const d = new Date();
+  const jour = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  const p = PROMO_10XSF_PERIODES.find(x => jour <= x.jusquau) || PROMO_10XSF_PERIODES[PROMO_10XSF_PERIODES.length - 1];
+  return { debut: "2026-09-16", fin: "2026-11-30", label: p.label, labelCourt: p.labelCourt };
+})();
+// Achat minimum pour le 10× Sans Frais (prix produit). Relevé à 600 € le 22/10/2026.
+// Miroir de SEUIL_10XSF côté serveur (generate_ilv_depliant.py), qui refuse aussi.
+const SEUIL_10XSF = 600;
 
 // Les dates affichées dans l'aide de l'onglet Scan suivent PROMO_10XSF
 // (évite une date figée à oublier lors du prochain changement de période).
@@ -1648,7 +1663,7 @@ function addByScan(rawEan) {
   }
   // Crédit auto par prix + substitution 10x IR -> 10x SF pendant la fenêtre
   let credit = determineDefaultCredit(p.prix, p.universILV);
-  if (credit === '10x_ir' && is10xsfActif()) credit = '10x_sf';
+  if (credit === '10x_ir' && is10xsfActif() && p.prix >= SEUIL_10XSF) credit = '10x_sf';
   // Garantie par défaut : rien sur 5x/10x, 3★ (sinon meilleure dispo) à partir du 20x
   const warAll = lookupWarrantyAll(p.universILV, p.rayonILV, p.prix);
   const best = bestAvailableLevel(warAll);
@@ -2495,12 +2510,15 @@ function renderCart() {
     const creditCBs = Object.keys(CREDIT_TYPES).filter(ck => ck !== '60x_si' && ck !== '3x_sf').map(ck => {
       const ct = CREDIT_TYPES[ck];
       // Plafond légal : 3× et 5× sans frais limités à 3 000 €
-      const disabled = ((ck === '5x_sf' || ck === '3x_sf') && item.prix > 3000)
+      let disabled = ((ck === '5x_sf' || ck === '3x_sf') && item.prix > 3000)
         ? ' disabled title="' + (ck === '3x_sf' ? '3×' : '5×') + ' limité à 3 000 €"' : '';
+      // Seuil : 10× sans frais à partir de SEUIL_10XSF € d'achat
+      if (ck === '10x_sf' && item.prix < SEUIL_10XSF)
+        disabled = ' disabled title="10× sans frais à partir de ' + SEUIL_10XSF + ' € d\'achat"';
       const checked = (item.credits[ck] && !disabled) ? ' checked' : '';
       // 10× sans frais : libre, mais avertissement sur la période de validité
       const promoTag = (ck === '10x_sf')
-        ? '<span style="font-size:9px;color:#e67e22;font-weight:700;margin-left:3px;" title="Le 10× sans frais n\'est valable que du ' + PROMO_10XSF.labelCourt + '">⚠ valable du ' + PROMO_10XSF.labelCourt + '</span>'
+        ? '<span style="font-size:9px;color:#e67e22;font-weight:700;margin-left:3px;" title="Le 10× sans frais n\'est valable que du ' + PROMO_10XSF.labelCourt + ', dès ' + SEUIL_10XSF + ' € d\'achat">⚠ dès ' + SEUIL_10XSF + ' € · valable du ' + PROMO_10XSF.labelCourt + '</span>'
         : '';
       return '<label style="display:inline-flex;align-items:center;gap:3px;margin-right:8px;font-size:11px;white-space:nowrap;color:' + (disabled ? '#555' : '#bbb') + ';">' +
         '<input type="checkbox" data-idx="' + idx + '" data-ck="' + ck + '" onchange="toggleCredit(' + idx + ',\'' + ck + '\',this.checked)"' + checked + disabled + '>' +
@@ -2561,6 +2579,12 @@ function toggleCredit(idx, ck, checked) {
     alert('Le ' + (ck === '3x_sf' ? '3×' : '5×') + ' sans frais est limité à 3 000 € maximum.');
     return;
   }
+  // Seuil : 10× sans frais à partir de SEUIL_10XSF € d'achat
+  if (checked && ck === '10x_sf' && cart[idx].prix < SEUIL_10XSF) {
+    alert('Le 10× sans frais est disponible à partir de ' + SEUIL_10XSF + ' € d\'achat.');
+    renderCart();
+    return;
+  }
   if (checked) cart[idx].credits[ck] = true;
   else delete cart[idx].credits[ck];
 
@@ -2604,6 +2628,10 @@ function updateCartPrice(idx, val) {
   }
   if (cart[idx].prix > 3000 && cart[idx].credits['3x_sf']) {
     delete cart[idx].credits['3x_sf'];
+  }
+  // Seuil 10× sans frais : décocher si le prix passe sous SEUIL_10XSF
+  if (cart[idx].prix < SEUIL_10XSF && cart[idx].credits['10x_sf']) {
+    delete cart[idx].credits['10x_sf'];
   }
   // Re-lookup warranty
   const item = cart[idx];
@@ -2706,7 +2734,7 @@ async function generateSerie() {
   if (prods.length > 300 && !confirm('Générer ' + prods.length + ' ILV ?\nCela peut prendre 1 à 2 minutes et produire un ZIP volumineux.')) return;
   const items = prods.map(p => {
     let credit = determineDefaultCredit(p.prix, p.universILV);
-    if (credit === '10x_ir' && is10xsfActif()) credit = '10x_sf';
+    if (credit === '10x_ir' && is10xsfActif() && p.prix >= SEUIL_10XSF) credit = '10x_sf';
     const warAll = lookupWarrantyAll(p.universILV, p.rayonILV, p.prix);
     const best = bestAvailableLevel(warAll);
     const lvl = warAll.gar2 > 0 ? 2 : (best === 3 ? 1 : best);
@@ -2820,7 +2848,7 @@ async function generateDepliantSerie() {
   if (prods.length > 300 && !confirm('Générer ' + prods.length + ' ILV depuis le dépliant ?\nCela peut prendre 1 à 2 minutes.')) return;
   const items = prods.map(p => {
     let credit = determineDefaultCredit(p.prix, p.universILV);
-    if (credit === '10x_ir' && is10xsfActif()) credit = '10x_sf';
+    if (credit === '10x_ir' && is10xsfActif() && p.prix >= SEUIL_10XSF) credit = '10x_sf';
     const warAll = lookupWarrantyAll(p.universILV, p.rayonILV, p.prix);
     // Dépliant : garantie 1 étoile par défaut (sinon 3★ si pas de 1★ dispo)
     const lvl = warAll.gar1 > 0 ? 1 : (warAll.gar2 > 0 ? 2 : 0);

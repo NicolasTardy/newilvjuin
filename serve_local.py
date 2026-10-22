@@ -163,6 +163,11 @@ def _generate_one(item: dict) -> list[tuple[str, bytes]]:
     if credit_key == "5x_sf" and prix > 3000:
         raise ValueError("Le 5× sans frais est limité à 3 000 € maximum")
 
+    # Seuil : 10× sans frais à partir de 600 € d'achat (prix produit)
+    if credit_key == "10x_sf" and prix < gen.SEUIL_10XSF:
+        raise ValueError(f"Le 10× sans frais est disponible à partir de "
+                         f"{gen.SEUIL_10XSF} € d'achat")
+
     # 60× retiré de l'offre (choix commercial) : on privilégie le 48×, moins
     # coûteux en intérêts pour le client. La plomberie reste en place (cf. 3×).
     if credit_key == "60x_si":

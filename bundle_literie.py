@@ -52,7 +52,7 @@ def choisir_credit(gen, total, credit_demande=""):
     10× IR que donne la stratégie, jamais pour une autre tranche.
     """
     credit = gen.determine_credit(total, UNIVERS_ILV)
-    if credit == "10x_ir" and credit_demande == "10x_sf":
+    if credit == "10x_ir" and credit_demande == "10x_sf" and total >= gen.SEUIL_10XSF:
         credit = "10x_sf"
     if credit not in BUNDLE_CREDITS:
         raise ValueError(

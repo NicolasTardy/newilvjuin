@@ -27,7 +27,7 @@
   // Même règle que l'outil général : stratégie par prix + substitution 10× SF
   function creditBundle(total) {
     let ck = determineDefaultCredit(total, UNIVERS);
-    if (ck === '10x_ir' && is10xsfActif()) ck = '10x_sf';
+    if (ck === '10x_ir' && is10xsfActif() && total >= SEUIL_10XSF) ck = '10x_sf';
     return BUNDLE_CREDITS.includes(ck) ? ck : null;
   }
 

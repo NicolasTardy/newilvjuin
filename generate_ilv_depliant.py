@@ -232,8 +232,30 @@ TAUX_DEBITEUR_10XSF   = 4.99  # inchangé (hausse T3)
 # Retenue vendeur (RV) du 10× gratuit : le doc 891 exprime le coût pris en charge
 # par le magasin comme montant × RV (ex. 500 € → 11,25 €), et non par la formule PMT.
 RETENUE_10XSF         = 0.0225  # 2,25 % (barème Mobilux T3 — 10× gratuit)
-DATE_OFFRE_10XSF      = "du 22/09/2026 au 26/10/2026"      # mentions légales
-DATE_OFFRE_10XSF_HAUT = "Du 22/09 au 26/10/2026"          # bandeau en haut de l'ILV
+# Achat minimum pour le 10× Sans Frais (prix produit, hors services).
+# Relevé de 160 € à 600 € le 22/10/2026. Utilisé par la génération (refus) et
+# par les mentions légales (« vente de 600EUR a 25 000EUR »).
+SEUIL_10XSF           = 600
+# Périodes successives de l'offre : (dernier jour, texte mentions, texte bandeau).
+# Bascule automatique au lendemain de chaque fin, sans redéploiement (évalué à
+# chaque génération). Prolongation décidée le 22/10/2026 : 27/10 → 30/11/2026.
+PERIODES_10XSF = [
+    (date(2026, 10, 26), "du 22/09/2026 au 26/10/2026", "Du 22/09 au 26/10/2026"),
+    (date(2026, 11, 30), "du 27/10/2026 au 30/11/2026", "Du 27/10 au 30/11/2026"),
+]
+
+
+def periode_10xsf(jour=None):
+    """(texte mentions légales, texte bandeau) de la période en cours."""
+    jour = jour or date.today()
+    for fin, texte_ml, texte_haut in PERIODES_10XSF:
+        if jour <= fin:
+            return texte_ml, texte_haut
+    return PERIODES_10XSF[-1][1], PERIODES_10XSF[-1][2]
+
+
+# Valeurs au démarrage, gardées pour compatibilité : utiliser periode_10xsf().
+DATE_OFFRE_10XSF, DATE_OFFRE_10XSF_HAUT = periode_10xsf()
 DATE_CONDITIONS_10XSF = "29/07/2026"
 # Période de validité de l'offre 10× Sans Frais (affichée sur l'ILV, génération libre).
 
@@ -940,10 +962,10 @@ def generer_ml_text(slug: str, duree: int, famille: str,
         taeg_f_fmt = f"{TAEG_FICTIF_10XSF:.2f}".replace(".", ",")
         tdb_f_fmt  = f"{TAUX_DEBITEUR_10XSF:.2f}".replace(".", ",")
         return (
-            "Offre de credit accessoire a une vente de 160EUR a 25 000EUR sur une duree de 10 mois, "
-            "pour un achat de 160EUR a 25 000EUR. Le cout du credit est pris en charge par votre magasin. "
+            f"Offre de credit accessoire a une vente de {SEUIL_10XSF}EUR a 25 000EUR sur une duree de 10 mois, "
+            f"pour un achat de {SEUIL_10XSF}EUR a 25 000EUR. Le cout du credit est pris en charge par votre magasin. "
             "Taux Annuel Effectif Global fixe (TAEG) : 0 %. "
-            f"Offre valable {DATE_OFFRE_10XSF}. "
+            f"Offre valable {periode_10xsf()[0]}. "
             f"Exemple pour un achat et un credit accessoire a une vente de {mf_fmt} EUR "
             f"sur 10 mois, vous remboursez 10 mensualites de {mens_fmt} EUR. "
             f"Montant total du (par l'emprunteur) : {total_fmt} EUR. "
@@ -1544,7 +1566,7 @@ def generate_a3_pdf(slug, variant, designation, calc, montant_finance,
 
         # Bandeau de validité de l'offre 10× Sans Frais — en haut à droite (zone beige).
         if slug == "10xsf":
-            _draw_fitted(page, font, DATE_OFFRE_10XSF_HAUT, (550, 76, 806, 114),
+            _draw_fitted(page, font, periode_10xsf()[1], (550, 76, 806, 114),
                          _COL_RED, max_size=24, align="center")
 
         # Mentions légales — boîte du bas, AU-DESSUS des logos BUT/Cetelem (y=1111).
