@@ -703,7 +703,13 @@ const PROMO_10XSF = (function () {
 })();
 // Achat minimum pour le 10× Sans Frais (prix produit). Relevé à 600 € le 22/10/2026.
 // Miroir de SEUIL_10XSF côté serveur (generate_ilv_depliant.py), qui refuse aussi.
+// Depuis le 27/10/2026, le seuil se compare à PRIX PRODUIT + GARANTIE FINANCÉE
+// (livraison exclue). Dans les parcours automatiques (scan, série, dépliant), la
+// garantie n'est jamais incluse sur un 10× : le seuil y reste donc le prix seul.
 const SEUIL_10XSF = 600;
+function baseSeuil10xsf(item) {
+  return (Number(item.prix) || 0) + (item.garantie > 0 ? Number(item.garantie) : 0);
+}
 
 // Les dates affichées dans l'aide de l'onglet Scan suivent PROMO_10XSF
 // (évite une date figée à oublier lors du prochain changement de période).
@@ -2512,17 +2518,23 @@ function renderCart() {
       // Plafond légal : 3× et 5× sans frais limités à 3 000 €
       let disabled = ((ck === '5x_sf' || ck === '3x_sf') && item.prix > 3000)
         ? ' disabled title="' + (ck === '3x_sf' ? '3×' : '5×') + ' limité à 3 000 €"' : '';
-      // Seuil : 10× sans frais à partir de SEUIL_10XSF € d'achat
-      if (ck === '10x_sf' && item.prix < SEUIL_10XSF)
-        disabled = ' disabled title="10× sans frais à partir de ' + SEUIL_10XSF + ' € d\'achat"';
+      // Seuil : 10× sans frais dès SEUIL_10XSF €, produit + garantie financée.
+      // Si cocher la garantie suffit à l'atteindre, on le dit au vendeur.
+      let hint10 = '';
+      if (ck === '10x_sf' && baseSeuil10xsf(item) < SEUIL_10XSF) {
+        disabled = ' disabled title="10× sans frais à partir de ' + SEUIL_10XSF + ' € (produit + garantie)"';
+        const atteignable = !(item.garantie > 0) && lineAcceptsServices(item)
+          && (Number(item.prix) || 0) + (Number(item.garantieDispo) || 0) >= SEUIL_10XSF;
+        if (atteignable) hint10 = '<div style="font-size:10px;color:#27ae60;margin:-2px 0 4px 18px;">↳ cochez la garantie pour activer le 10× sans frais (produit + garantie ≥ ' + SEUIL_10XSF + ' €)</div>';
+      }
       const checked = (item.credits[ck] && !disabled) ? ' checked' : '';
       // 10× sans frais : libre, mais avertissement sur la période de validité
       const promoTag = (ck === '10x_sf')
-        ? '<span style="font-size:9px;color:#e67e22;font-weight:700;margin-left:3px;" title="Le 10× sans frais n\'est valable que du ' + PROMO_10XSF.labelCourt + ', dès ' + SEUIL_10XSF + ' € d\'achat">⚠ dès ' + SEUIL_10XSF + ' € · valable du ' + PROMO_10XSF.labelCourt + '</span>'
+        ? '<span style="font-size:9px;color:#e67e22;font-weight:700;margin-left:3px;" title="Le 10× sans frais n\'est valable que du ' + PROMO_10XSF.labelCourt + ', dès ' + SEUIL_10XSF + ' € d\'achat (produit + garantie)">⚠ dès ' + SEUIL_10XSF + ' € (produit + garantie) · valable du ' + PROMO_10XSF.labelCourt + '</span>'
         : '';
       return '<label style="display:inline-flex;align-items:center;gap:3px;margin-right:8px;font-size:11px;white-space:nowrap;color:' + (disabled ? '#555' : '#bbb') + ';">' +
         '<input type="checkbox" data-idx="' + idx + '" data-ck="' + ck + '" onchange="toggleCredit(' + idx + ',\'' + ck + '\',this.checked)"' + checked + disabled + '>' +
-        ct.label + promoTag + '</label>';
+        ct.label + promoTag + '</label>' + hint10;
     }).join('');
 
     // Courtes durées (3×/5×) : les services ne sont pas finançables → on grise
@@ -2579,9 +2591,10 @@ function toggleCredit(idx, ck, checked) {
     alert('Le ' + (ck === '3x_sf' ? '3×' : '5×') + ' sans frais est limité à 3 000 € maximum.');
     return;
   }
-  // Seuil : 10× sans frais à partir de SEUIL_10XSF € d'achat
-  if (checked && ck === '10x_sf' && cart[idx].prix < SEUIL_10XSF) {
-    alert('Le 10× sans frais est disponible à partir de ' + SEUIL_10XSF + ' € d\'achat.');
+  // Seuil : 10× sans frais dès SEUIL_10XSF €, produit + garantie financée
+  if (checked && ck === '10x_sf' && baseSeuil10xsf(cart[idx]) < SEUIL_10XSF) {
+    alert('Le 10× sans frais est disponible à partir de ' + SEUIL_10XSF + ' € d\'achat (produit + garantie).\n\n'
+      + 'Si la garantie permet d\'atteindre ce montant, cochez-la d\'abord.');
     renderCart();
     return;
   }
@@ -2617,6 +2630,11 @@ function toggleGar(idx, checked) {
     return;
   }
   item.garantie = checked ? (item.garantieDispo || 0) : 0;
+  // Retirer la garantie peut faire repasser sous le seuil du 10× sans frais
+  if (!checked && item.credits['10x_sf'] && baseSeuil10xsf(item) < SEUIL_10XSF) {
+    delete item.credits['10x_sf'];
+    alert('Sans la garantie, le montant passe sous ' + SEUIL_10XSF + ' € : le 10× sans frais est retiré de cette ligne.');
+  }
   renderCart();
 }
 
@@ -2628,10 +2646,6 @@ function updateCartPrice(idx, val) {
   }
   if (cart[idx].prix > 3000 && cart[idx].credits['3x_sf']) {
     delete cart[idx].credits['3x_sf'];
-  }
-  // Seuil 10× sans frais : décocher si le prix passe sous SEUIL_10XSF
-  if (cart[idx].prix < SEUIL_10XSF && cart[idx].credits['10x_sf']) {
-    delete cart[idx].credits['10x_sf'];
   }
   // Re-lookup warranty
   const item = cart[idx];
@@ -2646,6 +2660,11 @@ function updateCartPrice(idx, val) {
     item.garantie = garEtaitIncluse ? item.garantieDispo : 0;
     item.livraison = getLivPrixForType(warAll, item.livType || 'dom');
     item.montage = warAll.montage || 0;
+  }
+  // Seuil 10× sans frais (produit + garantie), vérifié APRÈS la mise à jour de
+  // la garantie : décocher s'il n'est plus atteint
+  if (item.credits['10x_sf'] && baseSeuil10xsf(item) < SEUIL_10XSF) {
+    delete item.credits['10x_sf'];
   }
   renderCart();
 }

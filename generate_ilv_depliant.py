@@ -232,9 +232,10 @@ TAUX_DEBITEUR_10XSF   = 4.99  # inchangé (hausse T3)
 # Retenue vendeur (RV) du 10× gratuit : le doc 891 exprime le coût pris en charge
 # par le magasin comme montant × RV (ex. 500 € → 11,25 €), et non par la formule PMT.
 RETENUE_10XSF         = 0.0225  # 2,25 % (barème Mobilux T3 — 10× gratuit)
-# Achat minimum pour le 10× Sans Frais (prix produit, hors services).
-# Relevé de 160 € à 600 € le 22/10/2026. Utilisé par la génération (refus) et
-# par les mentions légales (« vente de 600EUR a 25 000EUR »).
+# Achat minimum pour le 10× Sans Frais : prix produit + garantie financée
+# (livraison exclue). Relevé de 160 € à 600 € le 22/10/2026 ; garantie prise en
+# compte depuis le 27/10/2026. Utilisé par la génération (refus) et par les
+# mentions légales (« vente de 600EUR a 25 000EUR »).
 SEUIL_10XSF           = 600
 # Périodes successives de l'offre : (dernier jour, texte mentions, texte bandeau).
 # Bascule automatique au lendemain de chaque fin, sans redéploiement (évalué à

@@ -163,11 +163,6 @@ def _generate_one(item: dict) -> list[tuple[str, bytes]]:
     if credit_key == "5x_sf" and prix > 3000:
         raise ValueError("Le 5× sans frais est limité à 3 000 € maximum")
 
-    # Seuil : 10× sans frais à partir de 600 € d'achat (prix produit)
-    if credit_key == "10x_sf" and prix < gen.SEUIL_10XSF:
-        raise ValueError(f"Le 10× sans frais est disponible à partir de "
-                         f"{gen.SEUIL_10XSF} € d'achat")
-
     # 60× retiré de l'offre (choix commercial) : on privilégie le 48×, moins
     # coûteux en intérêts pour le client. La plomberie reste en place (cf. 3×).
     if credit_key == "60x_si":
@@ -209,6 +204,15 @@ def _generate_one(item: dict) -> list[tuple[str, bytes]]:
         montant_finance += garantie_prix
     if variant == "gar_liv":
         montant_finance += livraison_prix
+
+    # Seuil 10× sans frais : prix produit + garantie FINANCÉE (la livraison ne
+    # compte pas). Contrôlé après le choix de la variante, qui a déjà mis la
+    # garantie à 0 si elle n'est pas retenue.
+    if credit_key == "10x_sf":
+        base_seuil = prix + (garantie_prix if variant in ("gar", "gar_liv") else 0)
+        if base_seuil < gen.SEUIL_10XSF:
+            raise ValueError(f"Le 10× sans frais est disponible à partir de "
+                             f"{gen.SEUIL_10XSF} € d'achat (produit + garantie)")
 
     calc = gen.calculer_credit(duree, famille, montant_finance)
     if calc["mensualite"] < 16:
